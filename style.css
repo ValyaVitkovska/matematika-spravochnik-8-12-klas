@@ -2,14 +2,14 @@
   --bg:#F4F7FC; --grid:rgba(43,76,155,.08); --card:#FFFFFF; --ink:#18233B;
   --muted:#5B6780; --accent:#2B4C9B; --accent-soft:rgba(43,76,155,.12);
   --line:#DCE3F0; --shadow:0 1px 3px rgba(24,35,59,.08),0 6px 18px rgba(24,35,59,.06);
-  --cO:#2B6CB0; --cT:#6B46C1; --cP:#B7791F; --cF:#2F855A; --cS:#2C7A7B; --cEx:#4A5568; --cW:#C53030; --cM:#2B4C9B;
+  --cO:#2B6CB0; --cT:#6B46C1; --cP:#B7791F; --cF:#2F855A; --cS:#2C7A7B; --cEx:#4A5568; --cW:#C53030; --cM:#2B4C9B; --cR:#0A7C74;
   --plot-line:#2B4C9B; --plot-line2:#C05621; --plot-line3:#2C7A7B;
 }
 html[data-theme="dark"]{
   --bg:#0E1424; --grid:rgba(122,162,247,.07); --card:#161F35; --ink:#E7ECF8;
   --muted:#98A4C0; --accent:#7AA2F7; --accent-soft:rgba(122,162,247,.16);
   --line:#26314D; --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.35);
-  --cO:#63A4E0; --cT:#B294E8; --cP:#E2B25A; --cF:#6CC79A; --cS:#63C4C6; --cEx:#A9B4CC; --cW:#F08080; --cM:#7AA2F7;
+  --cO:#63A4E0; --cT:#B294E8; --cP:#E2B25A; --cF:#6CC79A; --cS:#63C4C6; --cEx:#A9B4CC; --cW:#F08080; --cM:#7AA2F7; --cR:#3ED0C4;
   --plot-line:#7AA2F7; --plot-line2:#F0A35E; --plot-line3:#63C4C6;
 }
 *{box-sizing:border-box}
@@ -286,3 +286,12 @@ footer{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; justify-cont
 .crow{ display:inline-flex; margin:3px 7px 3px 0; padding:3px 4px; border:1px solid var(--line); border-radius:9px; background:var(--card); }
 .clist{ display:flex; flex-wrap:wrap; }
 .clist-title{ margin:.55rem 0 .3rem; color:var(--muted); font-size:.9rem; }
+
+/* ---------- Съдържание (списък с теми при избран клас) ---------- */
+.toc{ margin:0 0 1.4rem; padding:1rem 1.1rem; border:1px solid var(--line); border-radius:14px;
+  background:linear-gradient(180deg,var(--accent-soft),transparent); }
+.toc-title{ font-weight:700; color:var(--accent); margin-bottom:.6rem; font-size:.98rem; }
+.toc-list{ display:flex; flex-wrap:wrap; gap:.45rem; }
+.toc-chip{ border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px;
+  padding:.34rem .8rem; font-size:.86rem; cursor:pointer; transition:background .12s,border-color .12s,color .12s; }
+.toc-chip:hover{ background:var(--accent); border-color:var(--accent); color:#fff; }
