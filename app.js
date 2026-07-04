@@ -104,7 +104,7 @@ function stepperF(parent,label,min,max,step,val,onch){
   dec.onclick=()=>{ v=Math.max(min,+(v-step).toFixed(4)); upd(); onch&&onch(); };
   inc.onclick=()=>{ v=Math.min(max,+(v+step).toFixed(4)); upd(); onch&&onch(); };
   upd(); box.append(lab,row); parent.append(box);
-  const g=()=>v; g.set=x=>{ v=clamp(x,min,max); upd(); }; return g;
+  const g=()=>v; g.set=x=>{ v=clamp(x,min,max); upd(); }; g.box=box; return g;
 }
 function mkCanvas(parent,w=760,h=380){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; parent.append(cv); return cv; }
 function mkOut(parent){ const d=el('div','mout'); parent.append(d); return d; }
@@ -682,15 +682,16 @@ stereo:{ build(root){
   const CON=sel(ctls,'Построение',[['none','— без'],['height','височина h'],['apo','апотема / радиус'],['lp','ъгъл права–равнина'],['dih','линеен ъгъл на двустенен ъгъл']],draw);
   const spin=el('button','btn','⟳ Автовъртене'); ctls.append(spin);
   const A=stepperF(ctls,'основа a / радиус r',1,4,0.2,2,draw), Hh=stepperF(ctls,'височина h / R',1,5,0.2,3.2,draw), NN=stepper(ctls,'брой стени n',3,8,6,draw);
-  const cv=mkCanvas(root,760,400), out=mkOut(root); let rot=25*Math.PI/180, spinning=false, raf=null;
+  const cv=mkCanvas(root,760,400), out=mkOut(root); let rot=25*Math.PI/180, rotX=0.42, spinning=false, raf=null;
   spin.onclick=()=>{ spinning=!spinning; spin.classList.toggle('on',spinning); if(spinning) loop(); else cancelAnimationFrame(raf); };
   function loop(){ rot+=0.014; draw(); if(spinning) raf=requestAnimationFrame(loop); }
-  const view=(()=>{ const v=[0,0.42,1],L=Math.hypot(...v); return [v[0]/L,v[1]/L,v[2]/L]; })();
+  const view=[0,0,1];
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
   const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]], dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   const norm=a=>{const L=Math.hypot(...a)||1;return [a[0]/L,a[1]/L,a[2]/L];}, mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2];
-  function rotP(p){ const [x,y,z]=p; return [x*Math.cos(rot)+z*Math.sin(rot), y, z*Math.cos(rot)-x*Math.sin(rot)]; }
-  function scr(rp){ const k=52; return [380+k*rp[0], 210-k*rp[1]+k*rp[2]*0.42]; }
+  function rotP(p){ let [x,y,z]=p; const x1=x*Math.cos(rot)+z*Math.sin(rot), z1=-x*Math.sin(rot)+z*Math.cos(rot);
+    const y2=y*Math.cos(rotX)-z1*Math.sin(rotX), z2=y*Math.sin(rotX)+z1*Math.cos(rotX); return [x1,y2,z2]; }
+  function scr(rp){ const k=52; return [380+k*rp[0], 205-k*rp[1]]; }
   function line(c,rA,rB,color,w,dashed){ const A2=scr(rA),B2=scr(rB); c.globalAlpha=dashed?0.5:1; c.strokeStyle=color; c.lineWidth=dashed?Math.max(1,w-0.5):w; c.setLineDash(dashed?[5,5]:[]); c.beginPath(); c.moveTo(A2[0],A2[1]); c.lineTo(B2[0],B2[1]); c.stroke(); c.setLineDash([]); c.globalAlpha=1; }
   function wline(c,Pa,Pb,color,w,dashed){ line(c,rotP(Pa),rotP(Pb),color,w,dashed); }
   function wlabel(c,P,txt,color,dx,dy){ const s=scr(rotP(P)); c.fillStyle=color; c.font='bold 13px Georgia'; c.fillText(txt,s[0]+(dx||6),s[1]+(dy||-6)); }
@@ -702,6 +703,7 @@ stereo:{ build(root){
     const rv=verts.map(rotP); const cen=rv.reduce((s,p)=>add(s,p),[0,0,0]).map(x=>x/rv.length);
     const fv=faces.map(f=>{ let nrm=cross(sub(rv[f[1]],rv[f[0]]),sub(rv[f[2]],rv[f[0]])); const fc=f.reduce((s,i)=>add(s,rv[i]),[0,0,0]).map(x=>x/f.length); if(dot(nrm,sub(fc,cen))<0)nrm=mul(nrm,-1); return dot(nrm,view)>0; });
     const em={}; faces.forEach((f,fi)=>{ for(let i=0;i<f.length;i++){ const a=f[i],b=f[(i+1)%f.length],key=Math.min(a,b)+'_'+Math.max(a,b); if(!em[key])em[key]={a:Math.min(a,b),b:Math.max(a,b),vis:false}; if(fv[fi])em[key].vis=true; } });
+    faces.forEach((f,fi)=>{ if(fv[fi]){ c.beginPath(); f.forEach((idx,i)=>{const s=scr(rv[idx]); i?c.lineTo(s[0],s[1]):c.moveTo(s[0],s[1]);}); c.closePath(); c.fillStyle='rgba(122,201,193,0.17)'; c.fill(); } });
     const eg=Object.values(em); eg.filter(e=>!e.vis).forEach(e=>line(c,rv[e.a],rv[e.b],colH,1.7,true)); eg.filter(e=>e.vis).forEach(e=>line(c,rv[e.a],rv[e.b],colV,2.1,false));
   }
   function ringPts(rad,y,m){ return [...Array(m)].map((_,i)=>{const t=2*Math.PI*i/m;return [rad*Math.cos(t),y,rad*Math.sin(t)];}); }
@@ -768,16 +770,16 @@ stereo:{ build(root){
     out.innerHTML=txt+(cnote?'<br><span class="mnote">'+cnote+'</span>':''); renderMath(out);
   }
   draw(); liveRedraws.push(draw);
-  cv.style.touchAction='none'; let drag=false,lastX=0;
-  cv.addEventListener('pointerdown',e=>{ drag=true; lastX=e.clientX; cv.setPointerCapture&&cv.setPointerCapture(e.pointerId); cv.style.cursor='grabbing'; });
-  cv.addEventListener('pointermove',e=>{ if(drag){ rot+=(e.clientX-lastX)*0.012; lastX=e.clientX; draw(); } else cv.style.cursor='grab'; });
+  cv.style.touchAction='none'; let drag=false,lastX=0,lastY=0;
+  cv.addEventListener('pointerdown',e=>{ drag=true; lastX=e.clientX; lastY=e.clientY; cv.setPointerCapture&&cv.setPointerCapture(e.pointerId); cv.style.cursor='grabbing'; });
+  cv.addEventListener('pointermove',e=>{ if(drag){ rot+=(e.clientX-lastX)*0.012; rotX=clamp(rotX+(e.clientY-lastY)*0.009,-0.15,1.3); lastX=e.clientX; lastY=e.clientY; draw(); } else cv.style.cursor='grab'; });
   cv.addEventListener('pointerup',()=>{drag=false;cv.style.cursor='grab';}); cv.addEventListener('pointercancel',()=>drag=false);
 }},
 
-/* ---------- Основни понятия в пространството (3D) ---------- */
+/* ---------- Основни понятия в пространството (3D, геогебра-стил) ---------- */
 stereobasics:{ build(root){
   const ctls=el('div','ctls'); root.append(ctls);
-  const hint=el('div','mnote','Влачи върху сцената, за да я завъртиш. Избери понятие от менюто.'); root.append(hint);
+  const hint=el('div','mnote','Влачи върху сцената, за да я завъртиш свободно (наляво-надясно и нагоре-надолу). Избери понятие от менюто.'); root.append(hint);
   const MODE=sel(ctls,'Понятие',[
     ['plane3p','Равнина през 3 неколинеарни точки'],
     ['planeLP','Равнина през права и точка извън нея'],
@@ -790,109 +792,154 @@ stereobasics:{ build(root){
     ['pp-par','Две успоредни равнини'],
     ['pp-int','Две пресичащи се равнини'],
     ['ang-ll','Ъгъл между две прави'],
+    ['ang-skew','Ъгъл между две кръстосани прави'],
     ['ang-lp','Ъгъл между права и равнина'],
     ['ang-pp','Ъгъл между две равнини (двустенен)'],
   ],draw);
-  const cv=mkCanvas(root,760,400), out=mkOut(root); let rot=28*Math.PI/180;
+  const W=760,H=420; const cv=mkCanvas(root,W,H), out=mkOut(root); let rotY=0.62, rotX=0.5;
+  const TEAL='122,201,193', BLUE='120,150,228', PT='27,108,190';
   const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
   const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]], dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   const norm=a=>{const L=Math.hypot(...a)||1;return [a[0]/L,a[1]/L,a[2]/L];};
-  function rotP(p){ const [x,y,z]=p; return [x*Math.cos(rot)+z*Math.sin(rot), y, z*Math.cos(rot)-x*Math.sin(rot)]; }
-  function scr(p){ const r=rotP(p),k=48; return [380+k*r[0], 205-k*r[1]+k*r[2]*0.42]; }
-  function seg(c,P,Q,color,w,dashed){ const A=scr(P),B=scr(Q); c.strokeStyle=color; c.lineWidth=w||2; c.globalAlpha=dashed?0.6:1; c.setLineDash(dashed?[6,5]:[]); c.beginPath(); c.moveTo(A[0],A[1]); c.lineTo(B[0],B[1]); c.stroke(); c.setLineDash([]); c.globalAlpha=1; }
+  function rotP(p){ let [x,y,z]=p; const x1=x*Math.cos(rotY)+z*Math.sin(rotY), z1=-x*Math.sin(rotY)+z*Math.cos(rotY);
+    const y2=y*Math.cos(rotX)-z1*Math.sin(rotX), z2=y*Math.sin(rotX)+z1*Math.cos(rotX); return [x1,y2,z2]; }
+  function scr(p){ const r=rotP(p),k=54; return [W/2+k*r[0], H/2-6-k*r[1]]; }
+  function seg(c,P,Q,color,w,dashed){ const A=scr(P),B=scr(Q); c.strokeStyle=color; c.lineWidth=w||2; c.globalAlpha=dashed?0.65:1; c.setLineDash(dashed?[7,6]:[]); c.beginPath(); c.moveTo(A[0],A[1]); c.lineTo(B[0],B[1]); c.stroke(); c.setLineDash([]); c.globalAlpha=1; }
   function line(c,C,dir,len,color,w,dashed){ seg(c,add(C,mul(dir,-len)),add(C,mul(dir,len)),color,w,dashed); }
-  function dotp(c,P,lab,color){ const s=scr(P); c.fillStyle=color; c.beginPath(); c.arc(s[0],s[1],4.5,0,7); c.fill(); if(lab){ c.font='bold 13px Georgia'; c.fillText(lab,s[0]+7,s[1]-6); } }
-  function plane(c,C,U,V,fill,stroke){
-    const P=[add(add(C,U),V),add(sub(C,U),V),add(sub(C,U),mul(V,-1)),add(add(C,U),mul(V,-1))];
-    c.beginPath(); P.forEach((p,i)=>{const s=scr(p); i?c.lineTo(s[0],s[1]):c.moveTo(s[0],s[1]);}); c.closePath();
-    c.fillStyle=fill; c.globalAlpha=0.5; c.fill(); c.globalAlpha=1; c.strokeStyle=stroke; c.lineWidth=1.4; c.stroke();
-    c.strokeStyle=stroke; c.globalAlpha=0.4; c.lineWidth=0.8;
-    for(const s of[-0.6,-0.2,0.2,0.6]){ seg(c,add(add(C,mul(U,s)),V),add(add(C,mul(U,s)),mul(V,-1)),stroke,0.8); seg(c,add(add(C,U),mul(V,s)),add(sub(C,U),mul(V,s)),stroke,0.8); }
-    c.globalAlpha=1;
+  function dotp(c,P,lab,labColor){ const s=scr(P);
+    const grad=c.createRadialGradient(s[0]-2,s[1]-2.5,0.5,s[0],s[1],7); grad.addColorStop(0,'#a9dbff'); grad.addColorStop(1,'rgb('+PT+')');
+    c.fillStyle=grad; c.beginPath(); c.arc(s[0],s[1],6,0,7); c.fill(); c.strokeStyle='rgba(255,255,255,.75)'; c.lineWidth=1; c.stroke();
+    if(lab){ c.fillStyle=labColor||('rgb('+PT+')'); c.font='bold 15px Georgia'; c.fillText(lab,s[0]+9,s[1]-8); } }
+  function plane(c,C,U,V,rgb){
+    const cor=[add(add(C,U),V),add(add(C,mul(U,-1)),V),add(add(C,mul(U,-1)),mul(V,-1)),add(add(C,U),mul(V,-1))];
+    const S=cor.map(scr); c.save();
+    c.beginPath(); S.forEach((s,i)=> i?c.lineTo(s[0],s[1]):c.moveTo(s[0],s[1])); c.closePath(); c.clip();
+    const cx=(S[0][0]+S[2][0])/2, cy=(S[0][1]+S[2][1])/2; const rad=Math.max(Math.hypot(S[0][0]-cx,S[0][1]-cy),Math.hypot(S[1][0]-cx,S[1][1]-cy))*1.06||60;
+    const grad=c.createRadialGradient(cx,cy,rad*0.08,cx,cy,rad);
+    grad.addColorStop(0,'rgba('+rgb+',0.62)'); grad.addColorStop(0.65,'rgba('+rgb+',0.34)'); grad.addColorStop(1,'rgba('+rgb+',0)');
+    c.fillStyle=grad; c.fillRect(0,0,W,H); c.restore();
+    c.strokeStyle='rgba('+rgb+',0.55)'; c.lineWidth=1.4; c.beginPath(); S.forEach((s,i)=> i?c.lineTo(s[0],s[1]):c.moveTo(s[0],s[1])); c.closePath(); c.stroke();
   }
   function angleArc(c,Vp,d1,d2,arcR,color){ d1=norm(d1); d2=norm(d2); const ang=Math.acos(Math.max(-1,Math.min(1,dot(d1,d2))));
-    c.strokeStyle=color; c.lineWidth=1.8; c.beginPath();
+    c.strokeStyle=color; c.lineWidth=1.9; c.setLineDash([]); c.beginPath();
     for(let i=0;i<=20;i++){ const t=i/20; const d=norm([d1[0]+(d2[0]-d1[0])*t,d1[1]+(d2[1]-d1[1])*t,d1[2]+(d2[2]-d1[2])*t]); const s=scr(add(Vp,mul(d,arcR))); i?c.lineTo(s[0],s[1]):c.moveTo(s[0],s[1]); }
     c.stroke(); return ang*180/Math.PI; }
   function draw(){
-    const m=MODE(); const c=cv.getContext('2d'); c.clearRect(0,0,760,400);
+    const m=MODE(); const c=cv.getContext('2d'); c.clearRect(0,0,W,H);
     const ink=cssVar('--ink'), acc=cssVar('--plot-line'), acc2=cssVar('--plot-line2'), red=cssVar('--cW'), grn=cssVar('--cF'), mut=cssVar('--muted');
-    const pf=acc+'22'; let txt='';
-    const U=[2.6,0,0], V=[0,0,2.0];
-    if(m==='plane3p'){ const P1=[-1.6,0,-1.2],P2=[2,0,-0.6],P3=[0.2,0,1.6];
-      plane(c,[0,0,0],U,V,pf,acc); dotp(c,P1,'A',red); dotp(c,P2,'B',red); dotp(c,P3,'C',red);
-      seg(c,P1,P2,red,1.5,true); seg(c,P2,P3,red,1.5,true); seg(c,P3,P1,red,1.5,true);
+    const U=[3,0,0], V=[0,0,2.4]; let txt='';
+    if(m==='plane3p'){ const P1=[-1.8,0,-1.3],P2=[2.2,0,-0.7],P3=[0.2,0,1.7];
+      plane(c,[0,0,0],U,V,TEAL); seg(c,P1,P2,red,1.4,true); seg(c,P2,P3,red,1.4,true); seg(c,P3,P1,red,1.4,true);
+      dotp(c,P1,'A'); dotp(c,P2,'B'); dotp(c,P3,'C');
       txt='<b>Аксиома.</b> През три точки, които не лежат на една права, минава <b>една единствена</b> равнина.'; }
-    else if(m==='planeLP'){ plane(c,[0,0,0],U,V,pf,acc); const A=[-2,0,-0.8],B=[2,0,0.4]; line(c,[0,0,-0.2],norm(sub(B,A)),2.6,acc2,2.4); dotp(c,[0.9,0,1.3],'M',red);
+    else if(m==='planeLP'){ plane(c,[0,0,0],U,V,TEAL); const A=[-2.2,0,-0.8],B=[2.2,0,0.5]; line(c,[0,0,-0.15],norm(sub(B,A)),2.8,acc2,2.6); dotp(c,[0.9,0,1.4],'M');
       txt='Права $g$ и точка $M$ извън нея определят <b>една</b> равнина — тя съдържа правата и точката.'; }
-    else if(m==='lines-int'){ plane(c,[0,0,0],U,V,pf,acc); line(c,[0,0,0],norm([1,0,0.5]),2.6,acc2,2.4); line(c,[0,0,0],norm([-0.6,0,1]),2.4,red,2.4); dotp(c,[0,0,0],'',ink);
+    else if(m==='lines-int'){ plane(c,[0,0,0],U,V,TEAL); line(c,[0,0,0],norm([1,0,0.5]),2.8,acc2,2.6); line(c,[0,0,0],norm([-0.6,0,1]),2.6,red,2.6); dotp(c,[0,0,0],'');
       txt='Две <b>пресичащи се</b> прави имат обща точка и определят една равнина.'; }
-    else if(m==='lines-par'){ plane(c,[0,0,0],U,V,pf,acc); line(c,[0,0,-0.7],norm([1,0,0.35]),2.6,acc2,2.4); line(c,[0,0,0.7],norm([1,0,0.35]),2.6,red,2.4);
+    else if(m==='lines-par'){ plane(c,[0,0,0],U,V,TEAL); line(c,[0,0,-0.8],norm([1,0,0.32]),2.8,acc2,2.6); line(c,[0,0,0.8],norm([1,0,0.32]),2.8,red,2.6);
       txt='Две <b>успоредни</b> прави (в една равнина, без обща точка) също определят равнина.'; }
-    else if(m==='lines-skew'){ plane(c,[0,0,0],U,V,pf,acc); line(c,[0,-0.02,0],norm([1,0,0.3]),2.6,acc2,2.4);
-      line(c,[0.3,1.4,0.2],norm([0.2,0,1]),1.9,red,2.4); dotp(c,[0.3,1.4,0.2],'',red);
+    else if(m==='lines-skew'){ plane(c,[0,0,0],U,V,TEAL); line(c,[0,-0.02,0],norm([1,0,0.3]),2.8,acc2,2.6);
+      line(c,[0.3,1.5,0.2],norm([0.2,0,1]),2.0,red,2.6); dotp(c,[0.3,1.5,0.2],'');
       txt='<b>Кръстосани</b> прави не лежат в обща равнина — не се пресичат и не са успоредни. Червената минава над равнината на синята.'; }
-    else if(m==='lp-in'){ plane(c,[0,0,0],U,V,pf,acc); line(c,[0,0,0.2],norm([1,0,0.25]),2.6,red,2.6);
+    else if(m==='lp-in'){ plane(c,[0,0,0],U,V,TEAL); line(c,[0,0,0.2],norm([1,0,0.25]),2.8,red,2.8);
       txt='<b>Аксиома.</b> Ако две точки на права лежат в равнина, то <b>цялата права</b> лежи в равнината.'; }
-    else if(m==='lp-par'){ plane(c,[0,0,0],U,V,pf,acc); line(c,[0,1.2,0.2],norm([1,0,0.25]),2.6,red,2.6);
+    else if(m==='lp-par'){ plane(c,[0,0,0],U,V,TEAL); line(c,[0,1.3,0.2],norm([1,0,0.25]),2.8,red,2.8);
       txt='Права е <b>успоредна</b> на равнина, ако няма обща точка с нея (тук — на височина над равнината).'; }
-    else if(m==='lp-cross'){ plane(c,[0,0,0],U,V,pf,acc); const O=[0.3,0,0.2]; line(c,O,norm([0.35,1,0.2]),2.2,red,2.6); dotp(c,O,'P',ink);
+    else if(m==='lp-cross'){ plane(c,[0,0,0],U,V,TEAL); const O=[0.3,0,0.2]; line(c,O,norm([0.35,1,0.2]),2.4,red,2.8); dotp(c,O,'P',ink);
       txt='Права <b>пресича</b> равнина, ако имат точно <b>една</b> обща точка $P$.'; }
-    else if(m==='pp-par'){ plane(c,[0,-0.9,0],U,V,pf,acc); plane(c,[0,1.1,0],U,V,acc2+'22',acc2);
+    else if(m==='pp-par'){ plane(c,[0,-1.0,0],U,V,TEAL); plane(c,[0,1.2,0],U,V,BLUE);
       txt='Две <b>успоредни</b> равнини нямат обща точка. Разстоянието между тях е постоянно.'; }
-    else if(m==='pp-int'){ plane(c,[0,0,0],U,V,pf,acc); plane(c,[0,0,0],[2.4,0,0],[0,2.0,0],acc2+'22',acc2); line(c,[0,0,0],[1,0,0],2.6,red,2.8);
+    else if(m==='pp-int'){ plane(c,[0,0,0],U,V,TEAL); plane(c,[0,0,0],[3,0,0],[0,2.2,0],BLUE); line(c,[0,0,0],[1,0,0],2.8,red,3);
       txt='<b>Аксиома.</b> Ако две равнини имат обща точка, те се пресичат по <b>обща права</b> (червената).'; }
-    else if(m==='ang-ll'){ plane(c,[0,0,0],U,V,pf,acc); const d1=norm([1,0,0.3]),d2=norm([-0.3,0,1]); line(c,[0,0,0],d1,2.4,acc2,2.4); line(c,[0,0,0],d2,2.2,red,2.4);
-      const ang=angleArc(c,[0,0,0],d1,d2,0.9,ink); txt='Ъгълът между две прави е острият ъгъл между тях (или между успоредни на тях през обща точка): <b>'+fmt(ang,0)+'°</b>.'; }
-    else if(m==='ang-lp'){ plane(c,[0,0,0],U,V,pf,acc); const O=[-0.6,0,-0.2], dir=norm([1.1,1.3,0.3]); const tip=add(O,mul(dir,2)); const proj=[tip[0],0,tip[2]];
-      seg(c,O,tip,red,2.6); seg(c,O,proj,grn,2,true); seg(c,tip,proj,mut,1.4,true); dotp(c,proj,'',ink);
-      const ang=angleArc(c,O,sub(tip,O),sub(proj,O),0.8,ink); txt='Ъгъл между права и равнина = ъгълът между правата и <b>проекцията</b> ѝ върху равнината: <b>'+fmt(ang,0)+'°</b>.'; }
-    else if(m==='ang-pp'){ plane(c,[0,0,0],U,V,pf,acc); const tilt=norm([0,0.8,1]); plane(c,[0,0,0],[2.4,0,0],mul(tilt,2.0),acc2+'22',acc2);
-      line(c,[0,0,0],[1,0,0],2.6,ink,2.6); const M=[1.1,0,0]; const dBase=[0,0,1], dTilt=norm([0,0.8,1]);
-      seg(c,M,add(M,mul(dBase,1.4)),grn,2.2); seg(c,M,add(M,mul(dTilt,1.4)),red,2.2);
+    else if(m==='ang-ll'){ plane(c,[0,0,0],U,V,TEAL); const d1=norm([1,0,0.3]),d2=norm([-0.3,0,1]); line(c,[0,0,0],d1,2.6,acc2,2.6); line(c,[0,0,0],d2,2.4,red,2.6);
+      const ang=angleArc(c,[0,0,0],d1,d2,0.9,ink); dotp(c,[0,0,0],'');
+      txt='Ъгълът между две прави е острият ъгъл между тях: <b>'+fmt(Math.min(ang,180-ang),0)+'°</b>.'; }
+    else if(m==='ang-skew'){ plane(c,[0,0,0],U,V,TEAL); const d1=norm([1,0,0.25]), d2=norm([0.15,0,1]);
+      line(c,[0,0,0],d1,2.8,acc2,2.6); line(c,[0.4,1.5,0.2],d2,2.0,red,2.6); dotp(c,[0.4,1.5,0.2],'');
+      line(c,[0,0,0],d2,1.7,red,1.7,true); const ang=angleArc(c,[0,0,0],d1,d2,0.9,ink); dotp(c,[0,0,0],'');
+      txt='Ъгъл между <b>кръстосани</b> прави: през обща точка построяваме прави, <b>успоредни</b> на дадените (пунктираната е успоредна на червената) — ъгълът между тях е търсеният: <b>'+fmt(Math.min(ang,180-ang),0)+'°</b>.'; }
+    else if(m==='ang-lp'){ plane(c,[0,0,0],U,V,TEAL); const O=[-0.6,0,-0.2], dir=norm([1.1,1.3,0.3]); const tip=add(O,mul(dir,2.1)); const proj=[tip[0],0,tip[2]];
+      seg(c,O,tip,red,2.8); seg(c,O,proj,grn,2.2,true); seg(c,tip,proj,mut,1.5,true); dotp(c,proj,'',ink);
+      const ang=angleArc(c,O,sub(tip,O),sub(proj,O),0.85,ink); txt='Ъгъл между права и равнина = ъгълът между правата и <b>проекцията</b> ѝ върху равнината: <b>'+fmt(ang,0)+'°</b>.'; }
+    else { plane(c,[0,0,0],U,V,TEAL); const tilt=norm([0,0.8,1]); plane(c,[0,0,0],[3,0,0],mul(tilt,2.3),BLUE);
+      line(c,[0,0,0],[1,0,0],2.8,red,3); const M=[1.2,0,0]; const dBase=[0,0,1], dTilt=norm([0,0.8,1]);
+      seg(c,M,add(M,mul(dBase,1.5)),grn,2.4); seg(c,M,add(M,mul(dTilt,1.5)),red,2.4);
       const ang=angleArc(c,M,dBase,dTilt,0.9,ink); dotp(c,M,'',ink);
       txt='Двустенен ъгъл: при точка от пресечницата издигаме по един перпендикуляр във всяка равнина — техният ъгъл е <b>линейният ъгъл</b> = <b>'+fmt(ang,0)+'°</b>.'; }
     out.innerHTML=txt; renderMath(out);
   }
   draw(); liveRedraws.push(draw);
-  cv.style.touchAction='none'; let drag=false,lastX=0;
-  cv.addEventListener('pointerdown',e=>{ drag=true; lastX=e.clientX; cv.setPointerCapture&&cv.setPointerCapture(e.pointerId); cv.style.cursor='grabbing'; });
-  cv.addEventListener('pointermove',e=>{ if(drag){ rot+=(e.clientX-lastX)*0.012; lastX=e.clientX; draw(); } else cv.style.cursor='grab'; });
+  cv.style.touchAction='none'; let drag=false,lastX=0,lastY=0;
+  cv.addEventListener('pointerdown',e=>{ drag=true; lastX=e.clientX; lastY=e.clientY; cv.setPointerCapture&&cv.setPointerCapture(e.pointerId); cv.style.cursor='grabbing'; });
+  cv.addEventListener('pointermove',e=>{ if(drag){ rotY+=(e.clientX-lastX)*0.011; rotX=clamp(rotX+(e.clientY-lastY)*0.009,0.12,1.32); lastX=e.clientX; lastY=e.clientY; draw(); } else cv.style.cursor='grab'; });
   cv.addEventListener('pointerup',()=>{drag=false;cv.style.cursor='grab';}); cv.addEventListener('pointercancel',()=>drag=false);
 }},
 
-/* ---------- Вектори: подвижни върхове ---------- */
+/* ---------- Действия с вектори: ясно разделени режими ---------- */
 vectors:{ build(root){
   const ctls=el('div','ctls'); root.append(ctls);
-  const hint=el('div','mnote','Влачи върховете на векторите (сините точки).'); root.append(hint);
-  const MODE=sel(ctls,'Действие',[['sum','a + b (триъгълник и успоредник)'],['mul','k · a (умножение с число)']],draw);
-  const cv=mkCanvas(root,760,430), out=mkOut(root); const g=new Graph(cv,-9,9,-5.1,5.1);
-  let Pa=[3,1], Pb=[1,2.5], Pk=[4.5,1.5];
-  function arrow(x1,y1,x2,y2,color,w,dash){ if(Math.hypot(x2-x1,y2-y1)<1e-6)return; g.seg(x1,y1,x2,y2,color,w||2.6,dash);
-    const c=g.c,X2=g.X(x2),Y2=g.Y(y2),an=Math.atan2(Y2-g.Y(y1),X2-g.X(x1)); c.fillStyle=color; c.beginPath(); c.moveTo(X2,Y2);
-    c.lineTo(X2-11*Math.cos(an-0.4),Y2-11*Math.sin(an-0.4)); c.lineTo(X2-11*Math.cos(an+0.4),Y2-11*Math.sin(an+0.4)); c.closePath(); c.fill(); }
+  const hint=el('div','mnote','Влачи върховете на векторите. Всяка стрелка показва посоката на вектора.'); root.append(hint);
+  const MODE=sel(ctls,'Действие',[
+    ['tri','събиране — правило на триъгълника'],
+    ['par','събиране — правило на успоредника'],
+    ['sub','изваждане a − b'],
+    ['mul','умножение с число k · a']],onMode);
+  const kstep=stepperF(ctls,'число k',-3,3,0.5,2,draw);
+  const cv=mkCanvas(root,760,440), out=mkOut(root); const g=new Graph(cv,-9,9,-5.22,5.22);
+  let Pa=[3,1.5], Pb=[-2,2.5];
+  const cA=cssVar('--plot-line'), cB=cssVar('--plot-line2'), cR=cssVar('--cW'), cK=cssVar('--cF');
+  function onMode(){ draw(); }
+  function arrow(x1,y1,x2,y2,color,w,dash){ if(Math.hypot(x2-x1,y2-y1)<1e-6)return; g.seg(x1,y1,x2,y2,color,w||2.8,dash);
+    const c=g.c,X1=g.X(x1),Y1=g.Y(y1),X2=g.X(x2),Y2=g.Y(y2),an=Math.atan2(Y2-Y1,X2-X1); c.fillStyle=color; c.beginPath(); c.moveTo(X2,Y2);
+    c.lineTo(X2-13*Math.cos(an-0.38),Y2-13*Math.sin(an-0.38)); c.lineTo(X2-13*Math.cos(an+0.38),Y2-13*Math.sin(an+0.38)); c.closePath(); c.fill(); }
+  function vlabel(x,y,t,color){ g.label(x,y,t,color,6,-8,'bold 16px Georgia'); }
   function draw(){
-    g.clear(); g.grid(1); g.axes(2);
-    if(MODE()==='sum'){
-      arrow(0,0,Pa[0],Pa[1],cssVar('--plot-line')); g.label(Pa[0]/2,Pa[1]/2,'a',cssVar('--plot-line'),8,-8,'bold 15px Georgia');
-      arrow(Pa[0],Pa[1],Pa[0]+Pb[0],Pa[1]+Pb[1],cssVar('--plot-line2')); g.label(Pa[0]+Pb[0]/2,Pa[1]+Pb[1]/2,'b',cssVar('--plot-line2'),8,-8,'bold 15px Georgia');
-      arrow(0,0,Pa[0]+Pb[0],Pa[1]+Pb[1],cssVar('--cW'),3.2); g.label((Pa[0]+Pb[0])/2,(Pa[1]+Pb[1])/2,'a + b',cssVar('--cW'),-46,16,'bold 15px Georgia');
-      arrow(0,0,Pb[0],Pb[1],cssVar('--plot-line2'),1.5,[6,5]); arrow(Pb[0],Pb[1],Pa[0]+Pb[0],Pa[1]+Pb[1],cssVar('--plot-line'),1.5,[6,5]);
+    const m=MODE(); g.clear(); g.grid(1); g.axes(2);
+    // показваме брояча за k само в режим на умножение
+    kstep.box.style.display = (m==='mul')?'':'none';
+    if(m==='tri'){
+      arrow(0,0,Pa[0],Pa[1],cA); vlabel(Pa[0]/2,Pa[1]/2,'a',cA);
+      arrow(Pa[0],Pa[1],Pa[0]+Pb[0],Pa[1]+Pb[1],cB); vlabel(Pa[0]+Pb[0]/2,Pa[1]+Pb[1]/2,'b',cB);
+      arrow(0,0,Pa[0]+Pb[0],Pa[1]+Pb[1],cR,3.4); vlabel((Pa[0]+Pb[0])/2,(Pa[1]+Pb[1])/2-0.5,'a+b',cR);
+      g.handle(Pa[0],Pa[1],cssVar('--accent')); g.handle(Pa[0]+Pb[0],Pa[1]+Pb[1],cssVar('--accent'));
+      out.innerHTML='<b>Правило на триъгълника:</b> началото на <b>b</b> се поставя в края на <b>a</b>; сборът <b>a+b</b> е стрелката от началото на a до края на b.'+
+        '<br>a = ('+fmt(Pa[0])+'; '+fmt(Pa[1])+'), b = ('+fmt(Pb[0])+'; '+fmt(Pb[1])+') → <b>a+b = ('+fmt(Pa[0]+Pb[0])+'; '+fmt(Pa[1]+Pb[1])+')</b>';
+    }
+    else if(m==='par'){
+      arrow(0,0,Pa[0],Pa[1],cA); vlabel(Pa[0]/2,Pa[1]/2,'a',cA);
+      arrow(0,0,Pb[0],Pb[1],cB); vlabel(Pb[0]/2,Pb[1]/2,'b',cB);
+      g.seg(Pa[0],Pa[1],Pa[0]+Pb[0],Pa[1]+Pb[1],cB,1.5,[6,5]); g.seg(Pb[0],Pb[1],Pa[0]+Pb[0],Pa[1]+Pb[1],cA,1.5,[6,5]);
+      arrow(0,0,Pa[0]+Pb[0],Pa[1]+Pb[1],cR,3.4); vlabel((Pa[0]+Pb[0])/2,(Pa[1]+Pb[1])/2-0.5,'a+b',cR);
       g.handle(Pa[0],Pa[1],cssVar('--accent')); g.handle(Pb[0],Pb[1],cssVar('--accent'));
-      out.innerHTML='a = ('+fmt(Pa[0])+'; '+fmt(Pa[1])+'), b = ('+fmt(Pb[0])+'; '+fmt(Pb[1])+') → <b>a + b = ('+fmt(Pa[0]+Pb[0])+'; '+fmt(Pa[1]+Pb[1])+')</b> · |a + b| = <b>'+fmt(Math.hypot(Pa[0]+Pb[0],Pa[1]+Pb[1]),2)+'</b>';
-    } else {
-      const len2=Pa[0]*Pa[0]+Pa[1]*Pa[1]||1; const k=(Pk[0]*Pa[0]+Pk[1]*Pa[1])/len2;
-      arrow(0,0,k*Pa[0],k*Pa[1],cssVar('--plot-line2'),3.4); arrow(0,0,Pa[0],Pa[1],cssVar('--plot-line'),2.6);
-      g.label(Pa[0],Pa[1],'a',cssVar('--plot-line'),8,-8,'bold 15px Georgia'); g.label(k*Pa[0],k*Pa[1],'k·a',cssVar('--plot-line2'),8,18,'bold 15px Georgia');
-      g.handle(Pa[0],Pa[1],cssVar('--accent')); g.handle(k*Pa[0],k*Pa[1],cssVar('--accent'));
-      out.innerHTML='k = <b>'+fmt(k,2)+'</b> → k·a = ('+fmt(k*Pa[0])+'; '+fmt(k*Pa[1])+') · |k·a| = |k|·|a| = <b>'+fmt(Math.abs(k)*Math.hypot(Pa[0],Pa[1]),2)+'</b>'+
-        (k<0?'<br><span class="mnote">k < 0 → k·a сочи обратно (векторите са колинеарни).</span>':'');
+      out.innerHTML='<b>Правило на успоредника:</b> a и b тръгват от една точка; сборът <b>a+b</b> е <b>диагоналът</b> на успоредника, построен върху тях.'+
+        '<br><b>a+b = ('+fmt(Pa[0]+Pb[0])+'; '+fmt(Pa[1]+Pb[1])+')</b> · |a+b| = <b>'+fmt(Math.hypot(Pa[0]+Pb[0],Pa[1]+Pb[1]),2)+'</b>';
+    }
+    else if(m==='sub'){
+      arrow(0,0,Pa[0],Pa[1],cA); vlabel(Pa[0]/2,Pa[1]/2,'a',cA);
+      arrow(0,0,Pb[0],Pb[1],cB); vlabel(Pb[0]/2,Pb[1]/2,'b',cB);
+      arrow(Pb[0],Pb[1],Pa[0],Pa[1],cR,3.4); vlabel((Pa[0]+Pb[0])/2,(Pa[1]+Pb[1])/2,'a−b',cR);
+      g.handle(Pa[0],Pa[1],cssVar('--accent')); g.handle(Pb[0],Pb[1],cssVar('--accent'));
+      out.innerHTML='<b>Изваждане:</b> a − b е стрелката от <b>края на b към края на a</b> (тръгва от върха на b). Проверка: b + (a−b) = a.'+
+        '<br><b>a−b = ('+fmt(Pa[0]-Pb[0])+'; '+fmt(Pa[1]-Pb[1])+')</b> · |a−b| = <b>'+fmt(Math.hypot(Pa[0]-Pb[0],Pa[1]-Pb[1]),2)+'</b>';
+    }
+    else {
+      const k=kstep(); const K=[k*Pa[0],k*Pa[1]];
+      if(Math.abs(k)>1) { arrow(0,0,K[0],K[1],cK,3.6); arrow(0,0,Pa[0],Pa[1],cA,2.8); }
+      else { arrow(0,0,Pa[0],Pa[1],cA,2.8); arrow(0,0,K[0],K[1],cK,3.6); }
+      vlabel(Pa[0],Pa[1],'a',cA); vlabel(K[0],K[1],'k·a',cK);
+      g.handle(Pa[0],Pa[1],cssVar('--accent'));
+      let eff = k===0?'нулев вектор':(k<0?'обратна посока на a':'същата посока като a');
+      let len = Math.abs(k)<1&&k!==0?'по-къс от a':(Math.abs(k)>1?'по-дълъг от a':'');
+      out.innerHTML='<b>Умножение с число:</b> k·a е колинеарен с a. При k>0 — <b>същата</b> посока; при k<0 — <b>обратна</b>; дължината става |k| пъти.'+
+        '<br>k = <b>'+fmt(k,2)+'</b> → k·a = ('+fmt(K[0])+'; '+fmt(K[1])+'), |k·a| = |k|·|a| = <b>'+fmt(Math.abs(k)*Math.hypot(Pa[0],Pa[1]),2)+'</b> ('+eff+(len?', '+len:'')+').';
     }
   }
   draw(); liveRedraws.push(draw);
-  draggable(cv,g,()=> MODE()==='sum'
-    ? [{x:Pa[0],y:Pa[1],set:(x,y)=>Pa=[snap(x,0.5),snap(y,0.5)]},{x:Pb[0],y:Pb[1],set:(x,y)=>Pb=[snap(x,0.5),snap(y,0.5)]}]
-    : [{x:Pa[0],y:Pa[1],set:(x,y)=>Pa=[snap(x,0.5),snap(y,0.5)]},{x:Pk[0],y:Pk[1],set:(x,y)=>Pk=[x,y]}], draw);
+  draggable(cv,g,()=>{ const m=MODE();
+    if(m==='tri') return [{x:Pa[0],y:Pa[1],set:(x,y)=>Pa=[snap(x,0.5),snap(y,0.5)]},{x:Pa[0]+Pb[0],y:Pa[1]+Pb[1],set:(x,y)=>Pb=[snap(x,0.5)-Pa[0],snap(y,0.5)-Pa[1]]}];
+    if(m==='mul') return [{x:Pa[0],y:Pa[1],set:(x,y)=>Pa=[snap(x,0.5),snap(y,0.5)]}];
+    return [{x:Pa[0],y:Pa[1],set:(x,y)=>Pa=[snap(x,0.5),snap(y,0.5)]},{x:Pb[0],y:Pb[1],set:(x,y)=>Pb=[snap(x,0.5),snap(y,0.5)]}];
+  },draw);
 }},
 
 /* ---------- Триъгълник — основни факти: подвижен връх A ---------- */
