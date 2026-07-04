@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Математика 8.–12. клас · Интерактивен справочник</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#066F6A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Математика">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="favicon-64.png">
+</head>
+<body class="view-home">
+
+<section id="home">
+  <div class="hero">
+    <img class="hero-img" src="home-hero.jpg" alt="Математически справочник — книга, чертежи и геометрични тела">
+    <div class="hero-scrim"></div>
+    <div class="hero-title">
+      <span class="hero-kicker">интерактивен</span>
+      <h1 class="hero-h1">Математически справочник<br><span>8.–12. клас</span></h1>
+    </div>
+  </div>
+
+  <div class="home-body">
+    <blockquote class="quote">
+      <span class="quote-text">„Днес е добър ден да научим нещо ново!“</span>
+      <cite>— неизвестен автор</cite>
+    </blockquote>
+
+    <h2 class="home-h2">Как да работиш със справочника</h2>
+    <ol class="howto">
+      <li><span class="ic">🔎</span><div><b>Търси</b> по ключова дума, тема или формула в полето горе.</div></li>
+      <li><span class="ic">📚</span><div><b>Избери клас</b> от менюто вляво (8.–12.).</div></li>
+      <li><span class="ic">🎚️</span><div><b>Филтрирай</b> по област и по тип знание — определение, теорема, правило, формула…</div></li>
+      <li><span class="ic">🧮</span><div><b>Отвори интерактивен модел</b> и мести плъзгачите — чертежите и числата се преизчисляват на живо.</div></li>
+      <li><span class="ic">🎓</span><div>Превключи между режим <b>„Ученик“</b> (само същественото) и <b>„Разширен“</b>.</div></li>
+      <li><span class="ic">🌗</span><div>Смени <b>светла / тъмна тема</b> и <b>отпечатай</b> тема или целия справочник.</div></li>
+    </ol>
+
+    <div class="home-actions">
+      <button id="enterBtn" class="cta">Отвори справочника →</button>
+      <button id="installBtn" class="cta-ghost" hidden>📲 Инсталирай като приложение</button>
+    </div>
+    <p id="iosHint" class="ios-hint" hidden>На iPhone/iPad: докосни бутона <b>Сподели</b> и избери <b>„Към началния екран“</b>, за да го инсталираш като приложение.</p>
+
+    <div class="home-logo">
+      <img src="logo-full.png" alt="Интерактивна математика · Валя Витковска">
+    </div>
+  </div>
+</section>
+
+<div id="appview">
+
+<header>
+  <div class="hrow">
+    <div class="brand" id="brandHome" role="button" tabindex="0" title="Към началната страница">
+      <img class="brand-mark" src="logo-mark.png" alt="">
+      <div class="brand-txt">
+        <h1>Справочник по математика</h1>
+        <small>8. – 12. клас · интерактивен</small>
+      </div>
+    </div>
+    <input id="search" type="search" placeholder="Търсене: дума, тема, формула…" aria-label="Търсене">
+    <div class="hbtns">
+      <button class="btn" id="modeBtn" title="Превключване Ученик / Разширен справочник">Режим: Разширен</button>
+      <button class="btn" id="themeBtn" title="Светла / тъмна тема">🌙 Тема</button>
+      <button class="btn" id="printBtn" title="Печат или запис като PDF">🖨 Печат</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="pane">
+      <h3>Клас</h3>
+      <div class="klist" id="klist"></div>
+    </div>
+    <div class="pane">
+      <h3>Област</h3>
+      <div class="chips" id="doms"></div>
+    </div>
+    <div class="pane">
+      <h3>Тип знание</h3>
+      <div class="chips" id="types"></div>
+    </div>
+    <div class="pane sidebtns">
+      <button class="btn" id="showAll">Покажи всичко</button>
+      <button class="btn" id="toggleDetails">Скрий подробностите</button>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="status"></div>
+    <div id="content"></div>
+  </main>
+</div>
+
+<footer>
+  <button class="home-mark" id="homeMark" title="Към началната страница" aria-label="Към началната страница">
+    <img src="logo-mark.png" alt="">
+  </button>
+  <div class="credits">
+    <p class="credits-main">Систематизация и педагогически дизайн: <b>Валя Витковска</b>. Създадено с помощта на AI инструменти.</p>
+    <p class="credits-sub">Формулите се визуализират с KaTeX · ресурсът работи изцяло в браузъра, без сървър и регистрация.</p>
+  </div>
+</footer>
+
+</div><!-- /#appview -->
+
+<button class="home-fab" id="homeFab" title="Към началната страница" aria-label="Към началната страница">
+  <img src="logo-mark.png" alt="">
+</button>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
