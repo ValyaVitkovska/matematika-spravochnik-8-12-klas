@@ -268,3 +268,21 @@ footer{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; justify-cont
   .hero{ max-height:52vh; }
   footer{ justify-content:flex-start; }
 }
+
+/* ---------- Стъпкови броячи (заместват плъзгачите) ---------- */
+.steprow{ display:inline-flex; align-items:center; gap:.5rem; margin-top:.3rem; }
+.stepb{ width:32px; height:32px; border-radius:9px; border:1px solid var(--line); background:var(--card); color:var(--ink);
+  font-size:1.25rem; line-height:1; font-weight:700; cursor:pointer; transition:background .12s,border-color .12s; }
+.stepb:hover{ background:var(--accent-soft); border-color:var(--accent); }
+.stepb:active{ transform:translateY(1px); }
+.stepv{ min-width:2.4ch; text-align:center; font-weight:700; color:var(--accent); font-size:1rem; }
+
+/* ---------- Комбинаторика: чипове и списък ---------- */
+.comb-ex{ margin-top:.5rem; }
+.cpool{ margin:.2rem 0 .5rem; color:var(--muted); font-size:.92rem; display:flex; align-items:center; flex-wrap:wrap; gap:2px; }
+.cformula{ font-size:1.05rem; margin-bottom:.15rem; }
+.cchip{ display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:7px;
+  color:#fff; font-weight:700; font-size:.82rem; margin:2px; box-shadow:0 1px 2px rgba(0,0,0,.15); }
+.crow{ display:inline-flex; margin:3px 7px 3px 0; padding:3px 4px; border:1px solid var(--line); border-radius:9px; background:var(--card); }
+.clist{ display:flex; flex-wrap:wrap; }
+.clist-title{ margin:.55rem 0 .3rem; color:var(--muted); font-size:.9rem; }

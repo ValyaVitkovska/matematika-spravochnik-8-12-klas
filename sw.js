@@ -1,6 +1,6 @@
 /* Service worker — кешира ресурсите за офлайн работа и прави сайта инсталируем.
    Смени номера на версията, за да принудиш обновяване след промени. */
-const CACHE = 'spravochnik-v1';
+const CACHE = 'spravochnik-v2';
 const CORE = [
   './',
   './index.html',
