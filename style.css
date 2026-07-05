@@ -309,3 +309,8 @@ footer{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; justify-cont
 .tfrac{ display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; margin:0 .2rem; line-height:1.15; }
 .tfrac .tf-n{ border-bottom:1.6px solid currentColor; padding:0 .35rem; white-space:nowrap; }
 .tfrac .tf-d{ padding:0 .35rem; white-space:nowrap; }
+
+/* ---------- Широки карти (таблици заемат цялата ширина) ---------- */
+.card.wide{ grid-column:1 / -1; }
+.card.wide .rtab td:first-child, .card.wide .rtab th:first-child{ white-space:nowrap; }
+.rtab td, .rtab th{ min-width:5.5rem; }

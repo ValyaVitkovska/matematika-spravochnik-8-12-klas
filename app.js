@@ -190,29 +190,26 @@ quadroots:{ build(root){ MODELS.quad.build(root); }},
 
 /* ---------- Система линейни уравнения: по две точки на всяка права ---------- */
 system:{ build(root){
-  const hint=el('div','mnote','Влачи точките — всяка права минава през своите две точки.'); root.append(hint);
-  const cv=mkCanvas(root,720,440), out=mkOut(root);
-  const g=new Graph(cv,-8,8,-6,6);
-  let L1=[[-4,-2],[2,3]], L2=[[-3,3],[4,-3]];
-  const line=(p,q)=>({a:q[1]-p[1], b:p[0]-q[0], c:(q[1]-p[1])*p[0]+(p[0]-q[0])*p[1]});
-  function drawLine(p,q,color){ const L=line(p,q);
-    if(Math.abs(L.b)>1e-9) g.fn(x=>(L.c-L.a*x)/L.b,color); else g.seg(p[0],-6,p[0],6,color,2.2);
-    g.handle(p[0],p[1],color); g.handle(q[0],q[1],color); }
+  const ctls=el('div','ctls'); root.append(ctls);
+  const hint=el('div','mnote','Мени коефициентите с плъзгачите. Взаимното положение зависи от наклоните $k$ и свободните членове $m$.'); root.append(hint);
+  const K1=slider(ctls,'k₁ (наклон)',-3,3,0.25,-1,draw), M1=slider(ctls,'m₁',-5,5,0.5,-1,draw);
+  const K2=slider(ctls,'k₂ (наклон)',-3,3,0.25,-1,draw), M2=slider(ctls,'m₂',-5,5,0.5,3,draw);
+  const cv=mkCanvas(root,720,440), out=mkOut(root); const g=new Graph(cv,-8,8,-6,6);
   function draw(){
+    const k1=K1(),m1=M1(),k2=K2(),m2=M2();
     g.clear(); g.grid(1); g.axes(2);
-    drawLine(L1[0],L1[1],cssVar('--plot-line')); drawLine(L2[0],L2[1],cssVar('--plot-line2'));
-    const A=line(L1[0],L1[1]), B=line(L2[0],L2[1]); const D=A.a*B.b-B.a*A.b;
+    g.fn(x=>k1*x+m1,cssVar('--plot-line')); g.fn(x=>k2*x+m2,cssVar('--plot-line2'));
     let msg;
-    if(Math.abs(D)>1e-9){ const x=(A.c*B.b-B.c*A.b)/D, y=(A.a*B.c-B.a*A.c)/D;
-      g.dot(x,y,cssVar('--cW'),6); g.label(x,y,'('+fmt(x)+'; '+fmt(y)+')',cssVar('--cW'));
-      msg='Правите се пресичат → <b>едно решение</b> (x; y) = (<b>'+fmt(x)+'</b>; <b>'+fmt(y)+'</b>).';
-    } else { const par=Math.abs(A.c*B.a-B.c*A.a)<1e-6 && Math.abs(A.c*B.b-B.c*A.b)<1e-6;
-      msg = par?'Правите съвпадат → <b>безброй много решения</b>.':'Правите са успоредни → <b>няма решение</b>.'; }
-    out.innerHTML=msg+'<br><span class="mnote">Всяка права е зададена от две подвижни точки; пресечната им точка е решението на системата.</span>';
+    if(Math.abs(k1-k2)>1e-9){ const x=(m2-m1)/(k1-k2), y=k1*x+m1;
+      g.dot(x,y,cssVar('--cW'),6); g.label(x,y,'('+fmt(x)+'; '+fmt(y)+')',cssVar('--cW'),8,-8);
+      msg='$k_1\\ne k_2$ → правите се <b>пресичат</b>: <b>едно решение</b> (x; y) = (<b>'+fmt(x)+'</b>; <b>'+fmt(y)+'</b>).';
+    } else if(Math.abs(m1-m2)<1e-9){ msg='$k_1=k_2$ и $m_1=m_2$ → правите <b>съвпадат</b>: <b>безброй много</b> решения.'; }
+    else { msg='$k_1=k_2$, но $m_1\\ne m_2$ → правите са <b>успоредни</b>: <b>няма решение</b>.'; }
+    out.innerHTML='$y='+fmt(k1)+'x'+(m1<0?'−'+fmt(-m1):'+'+fmt(m1))+'$ &nbsp; и &nbsp; $y='+fmt(k2)+'x'+(m2<0?'−'+fmt(-m2):'+'+fmt(m2))+'$<br>'+msg+
+      '<br><span class="mnote">Наклоните решават дали правите се пресичат; при равни наклони свободните членове решават успоредни или съвпадащи.</span>';
+    renderMath(out);
   }
   draw(); liveRedraws.push(draw);
-  const H=(arr,i)=>({x:arr[i][0],y:arr[i][1],set:(x,y)=>arr[i]=[clamp(x,-7.5,7.5),clamp(y,-5.5,5.5)]});
-  draggable(cv,g,()=>[H(L1,0),H(L1,1),H(L2,0),H(L2,1)],draw);
 }},
 
 /* ---------- Метод на интервалите: подвижни корени на числовата ос ---------- */
@@ -1138,7 +1135,8 @@ rightmetric:{ build(root){
     const a1=Math.hypot(D[0]-B[0],D[1]-B[1]), b1=Math.hypot(D[0]-A[0],D[1]-A[1]), h=C[1]-A[1];
     g.clear();
     const ctx=g.c; ctx.strokeStyle=cssVar('--muted'); ctx.lineWidth=1.2; ctx.setLineDash([5,5]); ctx.beginPath();
-    ctx.arc(g.X(M[0]),g.Y(M[1]),Math.abs(g.X(M[0]+R)-g.X(M[0])),Math.PI,2*Math.PI,false); ctx.stroke(); ctx.setLineDash([]);
+    for(let i=0;i<=64;i++){ const th=Math.PI*i/64; const px=g.X(M[0]+R*Math.cos(th)), py=g.Y(M[1]+R*Math.sin(th)); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+    ctx.stroke(); ctx.setLineDash([]);
     g.poly([A,B,C],'rgba(127,127,127,.06)',cssVar('--ink'),2.2);
     g.seg(A[0],A[1],D[0],D[1],cssVar('--plot-line'),5); g.seg(D[0],D[1],B[0],B[1],cssVar('--plot-line3'),5);
     g.seg(C[0],C[1],D[0],D[1],cssVar('--plot-line2'),2.4);
@@ -1179,6 +1177,7 @@ semicircle:{ build(root){
     g.handle(P[0],P[1],cssVar('--accent'));
     g.label(0,0,'α',cssVar('--cW'),16,-8,'bold 14px Georgia');
     g.label(-1,0,'−1',cssVar('--muted'),-4,16,'11px system-ui'); g.label(1,0,'1',cssVar('--muted'),-2,16,'11px system-ui');
+    g.label(1,0,'0°',cssVar('--cW'),8,-6,'bold 11px system-ui'); g.label(-1,0,'180°',cssVar('--cW'),-38,-6,'bold 11px system-ui');
     const deg=al*180/Math.PI, tg=Math.abs(Math.cos(al))<1e-3?'—':fmt(Math.tan(al),3);
     out.innerHTML='α = <b>'+fmt(deg,0)+'°</b> · sin α = <b>'+fmt(Math.sin(al),3)+'</b>, cos α = <b>'+fmt(Math.cos(al),3)+'</b>, tg α = '+frac('sin α','cos α')+' = <b>'+tg+'</b>'+
       '<br><span class="mnote">Сивата точка е при 180° − α = '+fmt(180-deg,0)+'°: sin остава същият, cos сменя знака.</span>';
@@ -1190,23 +1189,40 @@ semicircle:{ build(root){
 
 /* ---------- Решаване на триъгълник: подвижни B и C около A ---------- */
 soltriangle:{ build(root){
-  const hint=el('div','mnote','Влачи върховете B и C — синусовата и косинусовата теорема се прилагат на живо.'); root.append(hint);
-  const cv=mkCanvas(root,760,460), out=mkOut(root); const g=new Graph(cv,-0.5,11.5,-0.8,6.46);
-  const A=[4.5,0.9]; let B=[9.2,0.9], C=[6.6,4.9];
+  const hint=el('div','mnote','Влачи върховете B и C. Показани са ъглите α, β, γ, страните a, b, c и описаната окръжност (център O, радиус R).'); root.append(hint);
+  const cv=mkCanvas(root,760,480), out=mkOut(root); const g=new Graph(cv,-1.2,12.2,-1.4,6.06);
+  const A=[4.5,1.2]; let B=[9.2,1.2], C=[6.6,5.0];
   function draw(){
-    B=[clamp(B[0],0.3,11.2),clamp(B[1],0.3,6)]; C=[clamp(C[0],0.3,11.2),clamp(C[1],0.3,6.2)];
+    B=[clamp(B[0],0.3,11.6),clamp(B[1],0.3,5.6)]; C=[clamp(C[0],0.3,11.6),clamp(C[1],0.3,5.8)];
     const a=Math.hypot(C[0]-B[0],C[1]-B[1]), b=Math.hypot(A[0]-C[0],A[1]-C[1]), cS=Math.hypot(A[0]-B[0],A[1]-B[1]);
     const angA=Math.acos(clamp(((B[0]-A[0])*(C[0]-A[0])+(B[1]-A[1])*(C[1]-A[1]))/(cS*b||1),-1,1));
-    const S=Math.abs((B[0]-A[0])*(C[1]-A[1])-(C[0]-A[0])*(B[1]-A[1]))/2, p=(a+b+cS)/2;
+    const S=Math.abs((B[0]-A[0])*(C[1]-A[1])-(C[0]-A[0])*(B[1]-A[1]))/2||1e-6, p=(a+b+cS)/2;
     const R=a/(2*Math.sin(angA)||1), rI=S/p;
     const angB=Math.acos(clamp((a*a+cS*cS-b*b)/(2*a*cS||1),-1,1)), angC=Math.PI-angA-angB;
-    g.clear(); g.poly([A,B,C],'rgba(127,127,127,.07)',cssVar('--ink'),2.4);
-    g.dot(A[0],A[1],cssVar('--accent'),4.5); g.label(A[0],A[1],'A',cssVar('--ink'),-6,20,'bold 14px Georgia');
-    g.handle(B[0],B[1],cssVar('--accent')); g.label(B[0],B[1],'B',cssVar('--ink'),8,20,'bold 14px Georgia');
+    // център на описаната окръжност (пресечна точка на симетралите)
+    const dd=2*(A[0]*(B[1]-C[1])+B[0]*(C[1]-A[1])+C[0]*(A[1]-B[1]))||1e-6;
+    const O=[((A[0]**2+A[1]**2)*(B[1]-C[1])+(B[0]**2+B[1]**2)*(C[1]-A[1])+(C[0]**2+C[1]**2)*(A[1]-B[1]))/dd,
+             ((A[0]**2+A[1]**2)*(C[0]-B[0])+(B[0]**2+B[1]**2)*(A[0]-C[0])+(C[0]**2+C[1]**2)*(B[0]-A[0]))/dd];
+    g.clear();
+    // описана окръжност (семплирана, за да ляга точно през върховете)
+    const ctx=g.c; ctx.strokeStyle=cssVar('--plot-line3'); ctx.lineWidth=1.6; ctx.setLineDash([6,5]); ctx.beginPath();
+    for(let i=0;i<=90;i++){ const t=2*Math.PI*i/90, px=g.X(O[0]+R*Math.cos(t)), py=g.Y(O[1]+R*Math.sin(t)); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+    ctx.stroke(); ctx.setLineDash([]);
+    g.dot(O[0],O[1],cssVar('--plot-line3'),4); g.label(O[0],O[1],'O',cssVar('--plot-line3'),8,16,'bold 12px Georgia');
+    g.poly([A,B,C],'rgba(127,127,127,.07)',cssVar('--ink'),2.4);
+    g.dot(A[0],A[1],cssVar('--accent'),4.5); g.label(A[0],A[1],'A',cssVar('--ink'),-16,6,'bold 14px Georgia');
+    g.handle(B[0],B[1],cssVar('--accent')); g.label(B[0],B[1],'B',cssVar('--ink'),10,6,'bold 14px Georgia');
     g.handle(C[0],C[1],cssVar('--accent')); g.label(C[0],C[1],'C',cssVar('--ink'),8,-8,'bold 14px Georgia');
-    g.label((B[0]+C[0])/2,(B[1]+C[1])/2,'a = '+fmt(a,2),cssVar('--plot-line2'),8,0);
-    out.innerHTML='Косинусова: a² = b² + c² − 2bc·cos α → a = <b>'+fmt(a,2)+'</b> · ъгли α = '+fmt(angA*180/Math.PI,0)+'°, β = '+fmt(angB*180/Math.PI,0)+'°, γ = '+fmt(angC*180/Math.PI,0)+'°'+
-      '<br>S = '+fmt(S,2)+' · R = '+frac('a','2 sin α')+' = <b>'+fmt(R,2)+'</b> · r = '+frac('S','p')+' = <b>'+fmt(rI,2)+'</b>';
+    // ъгли α, β, γ до върховете
+    g.label(A[0],A[1],'α',cssVar('--cW'),14,-2,'bold 14px Georgia');
+    g.label(B[0],B[1],'β',cssVar('--cW'),-18,-2,'bold 14px Georgia');
+    g.label(C[0],C[1],'γ',cssVar('--cW'),-4,20,'bold 14px Georgia');
+    // страни a (BC), b (CA), c (AB)
+    g.label((B[0]+C[0])/2,(B[1]+C[1])/2,'a',cssVar('--plot-line2'),10,0,'bold 13px Georgia');
+    g.label((C[0]+A[0])/2,(C[1]+A[1])/2,'b',cssVar('--plot-line'),-16,0,'bold 13px Georgia');
+    g.label((A[0]+B[0])/2,(A[1]+B[1])/2,'c',cssVar('--ink'),-4,20,'bold 13px Georgia');
+    out.innerHTML='Косинусова: $a^2=b^2+c^2-2bc\\cos\\alpha$ → a = <b>'+fmt(a,2)+'</b> · α = '+fmt(angA*180/Math.PI,0)+'°, β = '+fmt(angB*180/Math.PI,0)+'°, γ = '+fmt(angC*180/Math.PI,0)+'°'+
+      '<br>Синусова: '+frac('a','sin α')+' = 2R · R = <b>'+fmt(R,2)+'</b> · S = '+fmt(S,2)+' · r = '+frac('S','p')+' = <b>'+fmt(rI,2)+'</b>';
     renderMath(out);
   }
   draw(); liveRedraws.push(draw);
@@ -1232,46 +1248,112 @@ explog:{ build(root){
   animateSlider(anim, AB, draw, 0.04);
 }},
 
-/* ---------- Трапец: общ / равнобедрен / правоъгълен ---------- */
+/* ---------- Трапец: общ / равнобедрен / правоъгълен (голяма основа AB) ---------- */
 trapezoid:{ build(root){
   const ctls=el('div','ctls'); root.append(ctls);
-  const hint=el('div','mnote','Влачи сините точки. Средната отсечка е успоредна на основите и е равна на полусбора им.'); root.append(hint);
+  const hint=el('div','mnote','Голямата основа е AB (долу), малката е DC (горе). Влачи сините точки. Показани са петата на височината и отсечките върху AB.'); root.append(hint);
   const MODE=sel(ctls,'Вид',[['iso','равнобедрен'],['right','правоъгълен'],['gen','произволен']],draw);
-  const cv=mkCanvas(root,760,430), out=mkOut(root); const g=new Graph(cv,-0.5,11.5,-0.6,6.2);
-  const D=[1.5,0.7]; let C=[9.6,0.7], A=[3.4,4.3], B=[7.0,4.3];
+  const cv=mkCanvas(root,760,440), out=mkOut(root); const g=new Graph(cv,-0.5,11.5,-0.9,6.1);
+  const y0=0.7; const A=[1.4,y0]; let B=[9.6,y0], D=[3.4,4.3], C=[7.1,4.3];
   function draw(){
-    const m=MODE(); C=[clamp(C[0],D[0]+2,11),0.7];
-    A=[clamp(A[0],0.2,10.8),clamp(A[1],1.6,5.9)]; B[1]=A[1];
-    const cen=(D[0]+C[0])/2;
-    if(m==='iso'){ A[0]=clamp(A[0],D[0]+0.2,cen-0.4); B=[2*cen-A[0],A[1]]; }
-    else if(m==='right'){ A[0]=D[0]; B=[clamp(B[0],A[0]+1.2,C[0]-0.1),A[1]]; }
-    else { B[0]=clamp(B[0],A[0]+1.2,11); }
-    const a=B[0]-A[0], b=C[0]-D[0], h=A[1]-D[1];
-    const P=[(A[0]+D[0])/2,(A[1]+D[1])/2], Q=[(B[0]+C[0])/2,(B[1]+C[1])/2];
+    const m=MODE(); B=[clamp(B[0],A[0]+2.5,11),y0];
+    D=[clamp(D[0],A[0]+0.1,10.6),clamp(D[1],1.6,5.7)]; C[1]=D[1];
+    const cen=(A[0]+B[0])/2;
+    if(m==='iso'){ D[0]=clamp(D[0],A[0]+0.2,cen-0.4); C=[2*cen-D[0],D[1]]; }
+    else if(m==='right'){ D[0]=A[0]; C=[clamp(C[0],D[0]+1.2,B[0]-0.1),D[1]]; }
+    else { C[0]=clamp(C[0],D[0]+1.2,11); }
+    const a=C[0]-D[0], b=B[0]-A[0], h=D[1]-y0;             // a — малка (DC), b — голяма (AB)
+    const FD=[D[0],y0], FC=[C[0],y0];                       // пети на височините
+    const P=[(A[0]+D[0])/2,(A[1]+D[1])/2], Q=[(B[0]+C[0])/2,(B[1]+C[1])/2]; // среди на бедрата
     g.clear();
     g.poly([A,B,C,D],'rgba(43,108,176,.10)',cssVar('--ink'),2.2);
-    g.seg(A[0],A[1],C[0],C[1],cssVar('--plot-line2'),1.4,[6,5]); g.seg(B[0],B[1],D[0],D[1],cssVar('--plot-line2'),1.4,[6,5]); // диагонали
+    g.seg(A[0],A[1],C[0],C[1],cssVar('--plot-line2'),1.3,[6,5]); g.seg(B[0],B[1],D[0],D[1],cssVar('--plot-line2'),1.3,[6,5]); // диагонали
     g.seg(P[0],P[1],Q[0],Q[1],cssVar('--cF'),3); // средна отсечка
-    g.seg(A[0],A[1],A[0],D[1],cssVar('--plot-line3'),1.8,[4,4]); g.label(A[0],A[1],'∟',cssVar('--ink'),A[0]<=D[0]+0.05?4:-14,-16,'11px system-ui'); // височина
-    [['A',A,-6,-8],['B',B,8,-8],['C',C,8,20],['D',D,-16,20]].forEach(([n,p,dx,dy])=>{ g.dot(p[0],p[1],cssVar('--accent'),3.5); g.label(p[0],p[1],n,cssVar('--ink'),dx,dy,'bold 13px Georgia'); });
-    (m==='iso'?[A]:(m==='right'?[B]:[A,B])).forEach(p=>g.handle(p[0],p[1],cssVar('--accent'))); g.handle(C[0],C[1],cssVar('--accent'));
-    if(m!=='iso'&&m!=='right') g.handle(A[0],A[1],cssVar('--accent'));
-    g.label((A[0]+B[0])/2,A[1],'a = '+fmt(a,1),cssVar('--ink'),-16,-8,'12px system-ui');
-    g.label((D[0]+C[0])/2,D[1],'b = '+fmt(b,1),cssVar('--ink'),-16,22,'12px system-ui');
-    g.label(A[0],(A[1]+D[1])/2,'h = '+fmt(h,1),cssVar('--plot-line3'),A[0]<=D[0]+0.05?6:-42,0,'12px system-ui');
+    g.seg(D[0],D[1],FD[0],FD[1],cssVar('--plot-line3'),2,[4,4]); g.label(FD[0],FD[1],'∟',cssVar('--ink'),2,-4,'11px system-ui'); // височина от D
+    if(Math.abs(C[0]-B[0])>0.05){ g.seg(C[0],C[1],FC[0],FC[1],cssVar('--plot-line3'),1.4,[4,4]); }
+    g.dot(FD[0],FD[1],cssVar('--plot-line3'),3.5); g.label(FD[0],FD[1],m==='right'?'':'F',cssVar('--plot-line3'),-4,-8,'bold 11px Georgia');
+    [['A',A,-16,20],['B',B,10,20],['C',C,10,-8],['D',D,-16,-8]].forEach(([n,p,dx,dy])=>{ g.dot(p[0],p[1],cssVar('--accent'),3.5); g.label(p[0],p[1],n,cssVar('--ink'),dx,dy,'bold 13px Georgia'); });
+    (m==='right'?[C]:[D,C]).forEach(p=>g.handle(p[0],p[1],cssVar('--accent'))); g.handle(B[0],B[1],cssVar('--accent')); g.handle(D[0],D[1],cssVar('--accent'));
+    // означения на основите, височина, средна отсечка
+    g.label((D[0]+C[0])/2,D[1],'a = '+fmt(a,1),cssVar('--ink'),-16,-8,'12px system-ui');
+    g.label((A[0]+B[0])/2,y0,'b = '+fmt(b,1)+' (AB)',cssVar('--ink'),-24,40,'12px system-ui');
+    g.label(D[0],(D[1]+y0)/2,'h = '+fmt(h,1),cssVar('--plot-line3'),m==='right'?6:-42,0,'12px system-ui');
     g.label((P[0]+Q[0])/2,(P[1]+Q[1])/2,'m = '+fmt((a+b)/2,2),cssVar('--cF'),-24,-8,'bold 12px system-ui');
+    // дължини на отсечките върху голямата основа AB
+    const s1=D[0]-A[0], s2=C[0]-D[0], s3=B[0]-C[0];
+    if(s1>0.15) g.label((A[0]+FD[0])/2,y0,fmt(s1,1),cssVar('--plot-line'),-6,20,'11px system-ui');
+    if(s2>0.15) g.label((FD[0]+FC[0])/2,y0,fmt(s2,1),cssVar('--cF'),-6,20,'11px system-ui');
+    if(s3>0.15) g.label((FC[0]+B[0])/2,y0,fmt(s3,1),cssVar('--plot-line'),-6,20,'11px system-ui');
     let extra='';
-    if(m==='iso') extra=' · проекция на бедрото = '+tfrac('b − a','2')+' = '+fmt((b-a)/2,2)+' · проекция на диагонала = '+tfrac('a + b','2')+' = '+fmt((a+b)/2,2);
-    else if(m==='right') extra=' · лявото бедро е перпендикулярно на основите и е равно на h = '+fmt(h,2);
-    out.innerHTML='a = '+fmt(a,2)+', b = '+fmt(b,2)+', h = '+fmt(h,2)+' · средна отсечка m = '+tfrac('a + b','2')+' = <b>'+fmt((a+b)/2,2)+'</b>'+extra+'.';
+    if(m==='iso') extra='<br>Върху AB: крайните отсечки са по '+tfrac('b − a','2')+' = '+fmt((b-a)/2,2)+', а средната е a = '+fmt(a,1)+'. Проекция на диагонала = '+tfrac('a + b','2')+' = '+fmt((a+b)/2,2)+'.';
+    else if(m==='right') extra='<br>Лявото бедро AD ⟂ на основите и е равно на h = '+fmt(h,2)+'.';
+    out.innerHTML='Голяма основа b = AB = '+fmt(b,2)+', малка основа a = DC = '+fmt(a,2)+', височина h = '+fmt(h,2)+'.<br>Средна отсечка m = '+tfrac('a + b','2')+' = <b>'+fmt((a+b)/2,2)+'</b>.'+extra;
     renderMath(out);
   }
   draw(); liveRedraws.push(draw);
-  draggable(cv,g,()=>{ const m=MODE(); const hs=[{x:C[0],y:C[1],axis:'x',set:x=>C=[x,0.7]}];
-    if(m==='iso') hs.push({x:A[0],y:A[1],set:(x,y)=>A=[x,y]});
-    else if(m==='right') hs.push({x:A[0],y:A[1],axis:'y',set:(x,y)=>A=[D[0],y]}, {x:B[0],y:B[1],set:(x,y)=>B=[x,A[1]]});
-    else hs.push({x:A[0],y:A[1],set:(x,y)=>A=[x,y]}, {x:B[0],y:B[1],set:(x,y)=>B=[x,A[1]]});
+  draggable(cv,g,()=>{ const m=MODE(); const hs=[{x:B[0],y:B[1],axis:'x',set:x=>B=[x,y0]}];
+    hs.push({x:D[0],y:D[1],set:(x,y)=> D=(m==='right'?[A[0],y]:[x,y]) });
+    if(m!=='iso') hs.push({x:C[0],y:C[1],set:(x,y)=>C=[x,D[1]]});
     return hs; },draw);
+}},
+
+/* ---------- Подобни триъгълници ---------- */
+similar:{ build(root){
+  const ctls=el('div','ctls'); root.append(ctls);
+  const hint=el('div','mnote','Влачи върха C на левия триъгълник (мениш формата) и коефициента k с плъзгача. Десният триъгълник е подобен на левия с коефициент k.'); root.append(hint);
+  const K=slider(ctls,'коефициент k',0.3,2.4,0.1,1.5,draw);
+  const cv=mkCanvas(root,760,430), out=mkOut(root); const g=new Graph(cv,-0.5,13.5,-0.8,6.5);
+  const A1=[1,1], B1=[4.6,1]; let C1=[2.3,4.6];
+  const ang=(P,Q,R)=>{ const u=[Q[0]-P[0],Q[1]-P[1]],v=[R[0]-P[0],R[1]-P[1]]; return Math.acos(clamp((u[0]*v[0]+u[1]*v[1])/(Math.hypot(...u)*Math.hypot(...v)||1),-1,1))*180/Math.PI; };
+  function draw(){
+    C1=[clamp(C1[0],-0.2,5.5),clamp(C1[1],1.6,6)];
+    const k=K(); const A2=[7.6,1], B2=[A2[0]+k*(B1[0]-A1[0]),A2[1]+k*(B1[1]-A1[1])], C2=[A2[0]+k*(C1[0]-A1[0]),A2[1]+k*(C1[1]-A1[1])];
+    g.clear();
+    g.poly([A1,B1,C1],'rgba(43,108,176,.12)',cssVar('--plot-line'),2.4);
+    g.poly([A2,B2,C2],'rgba(192,86,33,.12)',cssVar('--plot-line2'),2.4);
+    const al=ang(A1,B1,C1), be=ang(B1,A1,C1), ga=ang(C1,A1,B1);
+    [['A',A1,-14,6],['B',B1,8,6],['C',C1,-4,-8]].forEach(([n,p,dx,dy])=>{ g.dot(p[0],p[1],cssVar('--accent'),3.5); g.label(p[0],p[1],n,cssVar('--ink'),dx,dy,'bold 12px Georgia'); });
+    [['A′',A2,-16,6],['B′',B2,8,6],['C′',C2,-4,-8]].forEach(([n,p,dx,dy])=>{ g.dot(p[0],p[1],cssVar('--accent'),3.5); g.label(p[0],p[1],n,cssVar('--ink'),dx,dy,'bold 12px Georgia'); });
+    g.label(A1[0],A1[1],'α',cssVar('--cW'),12,-4,'bold 12px Georgia'); g.label(B1[0],B1[1],'β',cssVar('--cW'),-14,-4,'bold 12px Georgia'); g.label(C1[0],C1[1],'γ',cssVar('--cW'),-2,16,'bold 12px Georgia');
+    g.label(A2[0],A2[1],'α',cssVar('--cW'),12,-4,'bold 12px Georgia'); g.label(B2[0],B2[1],'β',cssVar('--cW'),-14,-4,'bold 12px Georgia'); g.label(C2[0],C2[1],'γ',cssVar('--cW'),-2,16,'bold 12px Georgia');
+    g.handle(C1[0],C1[1],cssVar('--accent'));
+    const c1=Math.hypot(B1[0]-A1[0],B1[1]-A1[1]), S1=Math.abs((B1[0]-A1[0])*(C1[1]-A1[1])-(C1[0]-A1[0])*(B1[1]-A1[1]))/2;
+    out.innerHTML='Съответните ъгли са <b>равни</b>: α = '+fmt(al,0)+'°, β = '+fmt(be,0)+'°, γ = '+fmt(ga,0)+'° (α+β+γ = 180°).'+
+      '<br>Страните са пропорционални: '+frac("A′B′","AB")+' = <b>'+fmt(k,2)+'</b> = k. Лицата се отнасят като k²: '+frac("S′","S")+' = <b>'+fmt(k*k,2)+'</b>.';
+    renderMath(out);
+  }
+  draw(); liveRedraws.push(draw);
+  draggable(cv,g,()=>[{x:C1[0],y:C1[1],set:(x,y)=>C1=[x,y]}],draw);
+}},
+
+/* ---------- Обобщен ъгъл: завъртания и посока ---------- */
+genangle:{ build(root){
+  const ctls=el('div','ctls'); root.append(ctls);
+  const hint=el('div','mnote','Върти рамото с плъзгача — отвъд 360° и в отрицателна посока. Виждаш броя завъртания, стрелка на дъгата и точката върху окръжността.'); root.append(hint);
+  const TH=slider(ctls,'ъгъл (°)',-720,720,15,410,draw);
+  const anim=el('button','btn','▶ Анимация'); ctls.append(anim);
+  const W=760,H=380,yr=1.7,xr=yr*W/H; const cv=mkCanvas(root,W,H), out=mkOut(root); const g=new Graph(cv,-xr,xr,-yr,yr);
+  function draw(){
+    const deg=TH(), th=deg*Math.PI/180; const P=[Math.cos(th),Math.sin(th)];
+    g.clear(); g.circle(0,0,1,cssVar('--muted'),1.6);
+    g.seg(-xr+0.1,0,xr-0.1,0,cssVar('--muted'),1.2); g.seg(0,-yr+0.1,0,yr-0.1,cssVar('--muted'),1.2);
+    // спирала на завъртането с нарастващ радиус, за да се виждат оборотите
+    const c=g.c; c.strokeStyle=cssVar('--accent'); c.lineWidth=2; c.beginPath();
+    const N=Math.max(2,Math.round(Math.abs(th)/0.04)); let ex=0,ey=0,pex=0,pey=0;
+    for(let i=0;i<=N;i++){ const t=th*i/N, r=0.20+0.55*(i/N); const px=g.X(r*Math.cos(t)), py=g.Y(r*Math.sin(t)); if(i===N-1){pex=px;pey=py;} if(i===N){ex=px;ey=py;} i?c.lineTo(px,py):c.moveTo(px,py); }
+    c.stroke();
+    // стрелка в края на дъгата
+    if(N>=1){ const anb=Math.atan2(ey-pey,ex-pex); c.fillStyle=cssVar('--accent'); c.beginPath(); c.moveTo(ex,ey); c.lineTo(ex-11*Math.cos(anb-0.4),ey-11*Math.sin(anb-0.4)); c.lineTo(ex-11*Math.cos(anb+0.4),ey-11*Math.sin(anb+0.4)); c.closePath(); c.fill(); }
+    g.seg(0,0,P[0],P[1],cssVar('--plot-line'),2.4);
+    g.seg(P[0],P[1],P[0],0,cssVar('--plot-line2'),1.4,[5,4]); g.seg(P[0],P[1],0,P[1],cssVar('--plot-line3'),1.4,[5,4]);
+    g.handle(P[0],P[1],cssVar('--plot-line'));
+    g.label(1,0,'0°',cssVar('--muted'),4,16,'11px system-ui');
+    const turns=Math.trunc(deg/360), dir=deg<0?'отрицателна (по часовниковата)':'положителна (обратно на часовниковата)';
+    out.innerHTML='Ъгъл = <b>'+fmt(deg,0)+'°</b> = '+fmt(th,2)+' rad · посока: <b>'+dir+'</b> · пълни завъртания: <b>'+turns+'</b> · основен ъгъл: '+fmt(((deg%360)+360)%360,0)+'°'+
+      '<br>sin = <b>'+fmt(Math.sin(th),3)+'</b>, cos = <b>'+fmt(Math.cos(th),3)+'</b> (зависят само от основния ъгъл).';
+  }
+  draw(); liveRedraws.push(draw);
+  animateSlider(anim, TH, draw, 0.03);
 }},
 
 /* ---------- Равнинни фигури ---------- */
@@ -1459,7 +1541,8 @@ function render(){
         return;
       }
       const info=TYPES[it.t];
-      const card=el('div','card'+((it.t==='Ex'||it.t==='W')?' detail':''));
+      const wide = /<table/.test(it.b) ? ' wide' : '';
+      const card=el('div','card'+((it.t==='Ex'||it.t==='W')?' detail':'')+wide);
       card.style.setProperty('--tc','var('+info.cv+')');
       card.innerHTML='<div class="chead"><span class="badge">'+info.label+'</span><h4>'+it.h+'</h4></div><div class="body">'+it.b+'</div>';
       grid.append(card);
