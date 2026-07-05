@@ -295,3 +295,17 @@ footer{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; justify-cont
 .toc-chip{ border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px;
   padding:.34rem .8rem; font-size:.86rem; cursor:pointer; transition:background .12s,border-color .12s,color .12s; }
 .toc-chip:hover{ background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* ---------- Справочни таблици (в карти) ---------- */
+.rtab{ width:100%; border-collapse:collapse; margin:.5rem 0; font-size:.92rem; }
+.rtab th{ text-align:left; background:var(--accent-soft); color:var(--accent); padding:.4rem .55rem; border:1px solid var(--line); font-weight:700; }
+.rtab td{ padding:.4rem .55rem; border:1px solid var(--line); vertical-align:top; }
+
+/* ---------- Плъзгачи (само за функции/параметрични ъгли) ---------- */
+.slider-ctl{ flex:1 1 220px; }
+.slider-ctl input[type=range]{ width:100%; accent-color:var(--accent); margin-top:.35rem; height:22px; cursor:pointer; }
+.btn.on{ background:var(--accent); color:#fff; border-color:var(--accent); }
+/* ---------- Текстова дроб (многодумни изрази) ---------- */
+.tfrac{ display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; margin:0 .2rem; line-height:1.15; }
+.tfrac .tf-n{ border-bottom:1.6px solid currentColor; padding:0 .35rem; white-space:nowrap; }
+.tfrac .tf-d{ padding:0 .35rem; white-space:nowrap; }

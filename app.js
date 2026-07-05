@@ -107,6 +107,24 @@ function stepperF(parent,label,min,max,step,val,onch){
   const g=()=>v; g.set=x=>{ v=clamp(x,min,max); upd(); }; g.box=box; return g;
 }
 function mkCanvas(parent,w=760,h=380){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; parent.append(cv); return cv; }
+/* Плъзгач (за функции и параметрични ъгли) с показана стойност */
+function slider(parent,label,min,max,step,val,onch){
+  const box=el('div','ctl slider-ctl'); const lab=el('label'); let v=val;
+  const s=document.createElement('input'); s.type='range'; s.min=min; s.max=max; s.step=step; s.value=val;
+  const upd=()=>{ lab.innerHTML=label.replace('%v','<b>'+fmt(v, step<1?2:0)+'</b>'); };
+  s.addEventListener('input',()=>{ v=+s.value; upd(); onch&&onch(); });
+  upd(); box.append(lab,s); parent.append(box);
+  const g=()=>v; g.set=x=>{ v=clamp(x,min,max); s.value=v; upd(); }; g.el=s; g.box=box; g.min=min; g.max=max; g.step=step; return g;
+}
+/* Анимиране на плъзгач напред-назад */
+function animateSlider(btn, sld, redraw, speed){
+  let on=false, raf=null, dir=1;
+  btn.onclick=()=>{ on=!on; btn.classList.toggle('on',on); btn.textContent=on?'⏸ Спри':'▶ Анимирай'; if(on) loop(); else cancelAnimationFrame(raf); };
+  function loop(){ let nv=sld()+dir*(speed||sld.step); if(nv>=sld.max){nv=sld.max;dir=-1;} else if(nv<=sld.min){nv=sld.min;dir=1;} sld.set(nv); redraw(); raf=requestAnimationFrame(loop); }
+  return ()=>{ on=false; cancelAnimationFrame(raf); };
+}
+/* Текстова дроб (за многодумни български изрази — БЕЗ KaTeX, за да не се слепват думите) */
+function tfrac(a,b){ return '<span class="tfrac"><span class="tf-n">'+a+'</span><span class="tf-d">'+b+'</span></span>'; }
 function mkOut(parent){ const d=el('div','mout'); parent.append(d); return d; }
 const liveRedraws=[];
 
@@ -118,64 +136,55 @@ function kperms(arr,k){ if(k===0)return[[]]; const res=[]; arr.forEach((v,i)=>{ 
 /* ================= МОДЕЛИ ================= */
 const MODELS = {
 
-/* ---------- Линейна функция: права през две подвижни точки ---------- */
+/* ---------- Линейна функция: плъзгачи + анимация ---------- */
 linear:{ build(root){
-  const hint=el('div','mnote','Влачи двете сини точки — правата минава през тях.'); root.append(hint);
-  const cv=mkCanvas(root,720,430), out=mkOut(root);
-  const g=new Graph(cv,-8,8,-6,6);
-  let P=[[-3,-1],[3,3]];
+  const ctls=el('div','ctls'); root.append(ctls);
+  const hint=el('div','mnote','Мести плъзгачите за наклон a и свободен член b, или пусни анимация, за да видиш как се променя правата.'); root.append(hint);
+  const A=slider(ctls,'наклон a = %v',-4,4,0.1,0.7,draw);
+  const B=slider(ctls,'свободен член b = %v',-5,5,0.5,1,draw);
+  const anim=el('button','btn','▶ Анимирай a'); ctls.append(anim);
+  const cv=mkCanvas(root,720,430), out=mkOut(root); const g=new Graph(cv,-8,8,-6,6);
   function draw(){
-    let p0=P[0], p1=P[1]; if(Math.abs(p1[0]-p0[0])<0.4) p1[0]=p0[0]+0.4;
-    const a=(p1[1]-p0[1])/(p1[0]-p0[0]); const b=p0[1]-a*p0[0];
+    const a=A(), b=B();
     g.clear(); g.grid(1); g.axes(2);
-    g.fn(x=>a*x+b, cssVar('--plot-line'));
-    if(Math.abs(a)>1e-9){ const x0=-b/a; g.dot(x0,0,cssVar('--cW'),5); g.label(x0,0,'x₀='+fmt(x0),cssVar('--cW'),6,18); }
-    g.dot(0,b,cssVar('--plot-line3'),4);
-    g.handle(p0[0],p0[1],cssVar('--plot-line2')); g.handle(p1[0],p1[1],cssVar('--plot-line2'));
-    const beh=a>0?'расте':(a<0?'намалява':'е постоянна');
-    out.innerHTML='y = <b>'+fmt(a)+'</b>·x + <b>'+fmt(b)+'</b> · наклон a = '+fmt(a)+' → функцията '+beh+
-      ' · пресича Oy в (0; '+fmt(b)+')'+(Math.abs(a)>1e-9?', а Ox в x₀ = '+frac('−('+fmt(b)+')',fmt(a))+' = '+fmt(-b/a):'')+'.';
-    renderMath(out);
+    g.fn(x=>a*x+b, cssVar('--plot-line'),3.2);
+    g.dot(0,b,cssVar('--plot-line3'),5); g.label(0,b,'(0; '+fmt(b)+')',cssVar('--plot-line3'),8,-8);
+    if(Math.abs(a)>1e-6){ const x0=-b/a; g.dot(x0,0,cssVar('--cW'),5); g.label(x0,0,'x₀='+fmt(x0),cssVar('--cW'),6,18); }
+    const beh=a>0?'<b>расте</b>':(a<0?'<b>намалява</b>':'е <b>постоянна</b>');
+    out.innerHTML='y = <b>'+fmt(a)+'</b>·x + <b>'+fmt(b)+'</b> · наклонът a определя посоката — функцията '+beh+'. Пресича Oy в (0; '+fmt(b)+')'+(Math.abs(a)>1e-6?', а Ox в x₀ = '+fmt(-b/a):'')+'.';
   }
   draw(); liveRedraws.push(draw);
-  draggable(cv,g,()=>[
-    {x:P[0][0],y:P[0][1],set:(x,y)=>P[0]=[clamp(x,-7.5,7.5),clamp(y,-5.5,5.5)]},
-    {x:P[1][0],y:P[1][1],set:(x,y)=>P[1]=[clamp(x,-7.5,7.5),clamp(y,-5.5,5.5)]},
-  ],draw);
+  animateSlider(anim, A, draw, 0.06);
 }},
 
-/* ---------- Квадратна функция: връх + точка за широчината ---------- */
+/* ---------- Квадратна функция: плъзгачи + анимация ---------- */
 quad:{ build(root){
-  const hint=el('div','mnote','Влачи <b>върха</b> (оранжевата точка) и <b>точката за широчината</b> (синята).'); root.append(hint);
-  const cv=mkCanvas(root,720,440), out=mkOut(root);
-  const g=new Graph(cv,-8,8,-8,8);
-  let V=[1,-3], W=[4,1];
+  const ctls=el('div','ctls'); root.append(ctls);
+  const hint=el('div','mnote','Мести плъзгачите за a, b и c или пусни анимация — виж как всеки коефициент променя параболата.'); root.append(hint);
+  const A=slider(ctls,'a = %v',-3,3,0.1,1,draw);
+  const B=slider(ctls,'b = %v',-6,6,0.5,-2,draw);
+  const C=slider(ctls,'c = %v',-6,6,0.5,-3,draw);
+  const anim=el('button','btn','▶ Анимирай a'); ctls.append(anim);
+  const cv=mkCanvas(root,720,440), out=mkOut(root); const g=new Graph(cv,-8,8,-8,8);
   function draw(){
-    let h=V[0],k=V[1]; if(Math.abs(W[0]-h)<0.6) W[0]=h+ (W[0]>=h?0.6:-0.6);
-    let a=(W[1]-k)/((W[0]-h)**2); if(Math.abs(a)<0.02) a=a<0?-0.02:0.02;
-    const b=-2*a*h, c=a*h*h+k;
+    let a=A(); if(Math.abs(a)<0.05) a=a<0?-0.05:0.05;
+    const b=B(), c=C(); const h=-b/(2*a), k=c-b*b/(4*a);
     g.clear(); g.grid(1); g.axes(2);
-    g.fn(x=>a*(x-h)*(x-h)+k, cssVar('--plot-line'));
+    g.fn(x=>a*x*x+b*x+c, cssVar('--plot-line'),3.2);
     g.seg(h,-8,h,8,cssVar('--plot-line3'),1.4,[6,5]);
-    const D=b*b-4*a*c;
-    let roots;
+    g.dot(h,k,cssVar('--accent'),5.5); g.label(h,k,'V('+fmt(h)+'; '+fmt(k)+')',cssVar('--accent'),8,k>=0?20:-8);
+    g.dot(0,c,cssVar('--plot-line3'),4);
+    const D=b*b-4*a*c; let roots;
     if(D>1e-9){ const x1=(-b-Math.sqrt(D))/(2*a),x2=(-b+Math.sqrt(D))/(2*a);
       g.dot(x1,0,cssVar('--cW'),5); g.dot(x2,0,cssVar('--cW'),5);
-      g.label(x1,0,'x₁='+fmt(x1),cssVar('--cW'),6,20); g.label(x2,0,'x₂='+fmt(x2),cssVar('--cW'),6,-10);
-      roots='<b>два корена</b>: x₁ = '+fmt(x1)+', x₂ = '+fmt(x2);
-    } else if(Math.abs(D)<=1e-9) roots='<b>един (двоен) корен</b>: x = '+fmt(h);
+      roots='<b>два корена</b>: x₁='+fmt(x1)+', x₂='+fmt(x2);
+    } else if(Math.abs(D)<=1e-9){ g.dot(h,0,cssVar('--cW'),5); roots='<b>двоен корен</b>: x='+fmt(h); }
     else roots='<b>няма реални корени</b>';
-    g.handle(V[0],V[1],cssVar('--plot-line2')); g.handle(W[0],W[1],cssVar('--accent'));
-    out.innerHTML='y = '+fmt(a)+'(x − '+fmt(h)+')² + '+fmt(k)+' = '+fmt(a)+'x² + '+fmt(b)+'x + '+fmt(c)+
-      ' · връх V('+fmt(h)+'; '+fmt(k)+'), ос x = '+frac('−b','2a')+' = '+fmt(h)+
-      ' · отваря се '+(a>0?'нагоре':'надолу')+'<br>D = b² − 4ac = '+fmt(D)+' → '+roots+'.';
+    out.innerHTML='y = '+fmt(a)+'x² + '+fmt(b)+'x + '+fmt(c)+' · връх V('+fmt(h)+'; '+fmt(k)+'), ос на симетрия x = '+frac('−b','2a')+' = '+fmt(h)+' · отваря се '+(a>0?'нагоре (минимум)':'надолу (максимум)')+'<br>D = b² − 4ac = '+fmt(D)+' → '+roots+'.';
     renderMath(out);
   }
   draw(); liveRedraws.push(draw);
-  draggable(cv,g,()=>[
-    {x:V[0],y:V[1],set:(x,y)=>V=[clamp(x,-6,6),clamp(y,-7,7)]},
-    {x:W[0],y:W[1],set:(x,y)=>W=[clamp(x,-7.5,7.5),clamp(y,-7.5,7.5)]},
-  ],draw);
+  animateSlider(anim, A, draw, 0.05);
 }},
 quadroots:{ build(root){ MODELS.quad.build(root); }},
 
@@ -379,19 +388,19 @@ circleangles:{ build(root){
       g.seg(P3[0],P3[1],P1[0],P1[1],acc2,2); g.seg(P3[0],P3[1],P2[0],P2[1],acc2,2);
       g.handle(P1[0],P1[1],hl); g.handle(P2[0],P2[1],hl); g.handle(P3[0],P3[1],acc2);
       g.label(P3[0],P3[1],'C',cssVar('--ink'),8,-6,'bold 13px Georgia');
-      txt='Централен ъгъл ∠AOB = дъгата AB = <b>'+fmt(arc,0)+'°</b>. Вписан ъгъл ∠ACB = '+frac('дъга AB','2')+' = <b>'+fmt(va(P3,P1,P2),0)+'°</b> (половината).'; }
+      txt='Централен ъгъл ∠AOB = дъгата AB = <b>'+fmt(arc,0)+'°</b>. Вписан ъгъл ∠ACB = '+tfrac('дъга AB','2')+' = <b>'+fmt(va(P3,P1,P2),0)+'°</b> (половината).'; }
     else if(m==='tanchord'){ const T=P1, Ach=P2; const tdir=[-T[1],T[0]];
       g.seg(T[0]-tdir[0]*2,T[1]-tdir[1]*2,T[0]+tdir[0]*2,T[1]+tdir[1]*2,red,2); g.seg(T[0],T[1],Ach[0],Ach[1],acc2,2.4);
       arcMark(T,Ach,hl); g.handle(T[0],T[1],hl); g.handle(Ach[0],Ach[1],acc2);
       g.label(T[0],T[1],'T',cssVar('--ink'),8,-6,'bold 13px Georgia'); g.label(Ach[0],Ach[1],'A',cssVar('--ink'),8,-6,'bold 13px Georgia');
       const angle=Math.min(va(T,[T[0]+tdir[0],T[1]+tdir[1]],Ach),va(T,[T[0]-tdir[0],T[1]-tdir[1]],Ach));
-      txt='Ъгъл между <b>допирателна и хорда</b> = '+frac('пресичаната дъга','2')+' = '+frac(fmt(arcBetween(T,Ach),0)+'°','2')+' = <b>'+fmt(angle,0)+'°</b>.'; }
+      txt='Ъгъл между <b>допирателна и хорда</b> = '+tfrac('пресичаната дъга','2')+' = '+tfrac(fmt(arcBetween(T,Ach),0)+'°','2')+' = <b>'+fmt(angle,0)+'°</b>.'; }
     else if(m==='inside'){ const P=footIntersect(P1,P2,P3,P4);
       g.seg(P1[0],P1[1],P2[0],P2[1],acc,2.2); g.seg(P3[0],P3[1],P4[0],P4[1],acc2,2.2);
       [ [P1,'A'],[P2,'B'],[P3,'C'],[P4,'D'] ].forEach(([p,l])=>{ g.handle(p[0],p[1],hl); g.label(p[0],p[1],l,cssVar('--ink'),7,-6,'bold 12px Georgia'); });
       if(P){ g.dot(P[0],P[1],red,5); g.label(P[0],P[1],'P',red,8,14,'bold 12px Georgia'); }
       const a1=arcBetween(P1,P3), a2=arcBetween(P2,P4);
-      txt='Връх <b>вътре</b> в окръжността: ъгълът = '+frac('дъга AC + дъга BD','2')+' = '+frac(fmt(a1,0)+'° + '+fmt(a2,0)+'°','2')+' = <b>'+fmt((a1+a2)/2,0)+'°</b>'+(P?' (= измерения ∠APC = '+fmt(va(P,P1,P3),0)+'°)':'')+'.'; }
+      txt='Връх <b>вътре</b> в окръжността: ъгълът = '+tfrac('дъга AC + дъга BD','2')+' = '+tfrac(fmt(a1,0)+'° + '+fmt(a2,0)+'°','2')+' = <b>'+fmt((a1+a2)/2,0)+'°</b>'+(P?' (= измерения ∠APC = '+fmt(va(P,P1,P3),0)+'°)':'')+'.'; }
     else if(m==='outside'){ Vout=[clamp(Vout[0],-xr+0.2,xr-0.2),clamp(Vout[1],-yr+0.2,yr-0.2)]; if(Math.hypot(...Vout)<1.15)Vout=nrm(Vout).map(v=>v*1.3);
       const h1=secondHit(Vout,[P1[0]-Vout[0],P1[1]-Vout[1]]), h2=secondHit(Vout,[P2[0]-Vout[0],P2[1]-Vout[1]]);
       if(h1&&h2){ const near1=h1[1],far1=h1[0], near2=h2[1],far2=h2[0];
@@ -399,7 +408,7 @@ circleangles:{ build(root){
         g.handle(P1[0],P1[1],hl); g.handle(P2[0],P2[1],hl);
         arcMark(far1,far2,red); arcMark(near1,near2,cssVar('--muted'));
         const aFar=arcBetween(far1,far2), aNear=arcBetween(near1,near2);
-        txt='Връх <b>вън</b> (две секущи): ъгълът = '+frac('голямата − малката дъга','2')+' = '+frac(fmt(aFar,0)+'° − '+fmt(aNear,0)+'°','2')+' = <b>'+fmt(Math.abs(aFar-aNear)/2,0)+'°</b> (= ∠ = '+fmt(va(Vout,far1,far2),0)+'°).'; }
+        txt='Връх <b>вън</b> (две секущи): ъгълът = '+tfrac('голямата − малката дъга','2')+' = '+tfrac(fmt(aFar,0)+'° − '+fmt(aNear,0)+'°','2')+' = <b>'+fmt(Math.abs(aFar-aNear)/2,0)+'°</b> (= ∠ = '+fmt(va(Vout,far1,far2),0)+'°).'; }
       g.dot(Vout[0],Vout[1],red,5); g.handle(Vout[0],Vout[1],red); g.label(Vout[0],Vout[1],'P',red,8,-6,'bold 12px Georgia'); }
     else if(m==='tansec'){ Vout=[clamp(Vout[0],-xr+0.2,xr-0.2),clamp(Vout[1],-yr+0.2,yr-0.2)]; if(Math.hypot(...Vout)<1.2)Vout=nrm(Vout).map(v=>v*1.4);
       const d=Math.hypot(...Vout); const tl=Math.sqrt(Math.max(0,d*d-1)); const B=[Math.atan2(Vout[1],Vout[0])]; // допирателна дължина
@@ -410,7 +419,7 @@ circleangles:{ build(root){
       if(h){ const near=h[1],far=h[0]; g.seg(Vout[0],Vout[1],far[0],far[1],acc2,2.2); g.handle(P2[0],P2[1],hl);
         arcMark(T,far,cssVar('--muted')); arcMark(T,near,hl);
         const aFar=arcBetween(T,far), aNear=arcBetween(T,near);
-        txt='Връх <b>вън</b> (допирателна и секуща): ъгълът = '+frac('далечната − близката дъга','2')+' = <b>'+fmt(Math.abs(aFar-aNear)/2,0)+'°</b> (= ∠ = '+fmt(va(Vout,T,far),0)+'°).'; }
+        txt='Връх <b>вън</b> (допирателна и секуща): ъгълът = '+tfrac('далечната − близката дъга','2')+' = <b>'+fmt(Math.abs(aFar-aNear)/2,0)+'°</b> (= ∠ = '+fmt(va(Vout,T,far),0)+'°).'; }
       g.dot(T[0],T[1],cssVar('--ink'),3.5); g.label(T[0],T[1],'T',cssVar('--ink'),6,-6,'12px Georgia'); g.handle(Vout[0],Vout[1],red); g.label(Vout[0],Vout[1],'P',red,8,-6,'bold 12px Georgia'); }
     else { const A=P1, Bd=[-P1[0],-P1[1]], C=P3;
       g.seg(A[0],A[1],Bd[0],Bd[1],acc,2.4); g.seg(C[0],C[1],A[0],A[1],acc2,2.2); g.seg(C[0],C[1],Bd[0],Bd[1],acc2,2.2);
@@ -500,42 +509,37 @@ twocircles:{ build(root){
   ],draw);
 }},
 
-/* ---------- Тригонометрия на остър ъгъл: ъглова точка + точка за дължина ---------- */
+/* ---------- Тригонометрия на остър ъгъл: плъзгач за ъгъла ---------- */
 trigright:{ build(root){
-  const hint=el('div','mnote','Влачи <b style="color:#C05621">ъгловата точка</b>, за да смениш ъгъла α (отношенията се менят). Влачи <b style="color:#2B6CB0">върха C</b> по хипотенузата, за да смениш само дължините — отношенията остават същите!'); root.append(hint);
-  const cv=mkCanvas(root,760,440), out=mkOut(root);
-  const g=new Graph(cv,-0.6,10,-0.5,6.4);
-  const A=[0.8,0.6]; const rA=2.0; let al=35*Math.PI/180, L=5;
+  const ctls=el('div','ctls'); root.append(ctls);
+  const hint=el('div','mnote','Мести плъзгача за ъгъла α — отношенията се менят. Мести плъзгача за дължината — триъгълникът се уголемява, но отношенията остават същите.'); root.append(hint);
+  const AL=slider(ctls,'ъгъл α = %v°',10,80,1,35,draw);
+  const LEN=slider(ctls,'дължина (хипотенуза) = %v',3,7,0.5,5,draw);
+  const anim=el('button','btn','▶ Анимирай α'); ctls.append(anim);
+  const cv=mkCanvas(root,760,440), out=mkOut(root); const g=new Graph(cv,-0.6,10,-0.6,6.4);
+  const A=[0.8,0.7];
   function draw(){
-    // ограничаваме дължината, за да остане чертежът в екрана
-    const Lmax=Math.min((9.5-A[0])/Math.cos(al),(5.9-A[1])/Math.sin(al)); L=clamp(L,2.7,Lmax);
-    const u=[Math.cos(al),Math.sin(al)];
-    const C=[A[0]+L*u[0],A[1]+L*u[1]], B=[C[0],A[1]];
+    const al=AL()*Math.PI/180; let L=LEN();
+    const Lmax=Math.min((9.4-A[0])/Math.cos(al),(5.8-A[1])/Math.sin(al)); L=Math.min(L,Lmax);
+    const u=[Math.cos(al),Math.sin(al)]; const C=[A[0]+L*u[0],A[1]+L*u[1]], B=[C[0],A[1]];
     const opp=L*u[1], adj=L*u[0], hyp=L;
-    const Hang=[A[0]+rA*u[0],A[1]+rA*u[1]];
     g.clear();
-    // дъга на ъгъла
-    const c=g.c; c.strokeStyle=cssVar('--cW'); c.lineWidth=1.6; c.beginPath(); c.arc(g.X(A[0]),g.Y(A[1]),34,0,-al,true); c.stroke();
-    g.poly([A,B,C],null,cssVar('--ink'),2.2);
-    g.seg(A[0],A[1],B[0],B[1],cssVar('--plot-line'),4); g.seg(B[0],B[1],C[0],C[1],cssVar('--plot-line2'),4);
-    g.label((A[0]+B[0])/2,A[1],'прилежащ = '+fmt(adj,2),cssVar('--plot-line'),-40,22,'12px system-ui');
-    g.label(B[0],(B[1]+C[1])/2,'срещулежащ = '+fmt(opp,2),cssVar('--plot-line2'),10,4,'12px system-ui');
-    g.label((A[0]+C[0])/2,(A[1]+C[1])/2,'хипотенуза = '+fmt(hyp,2),cssVar('--ink'),-100,-10,'12px system-ui');
-    g.label(A[0],A[1],'α = '+fmt(al*180/Math.PI,1)+'°',cssVar('--cW'),40,-4,'bold 14px Georgia');
+    const c=g.c; c.strokeStyle=cssVar('--cW'); c.lineWidth=1.8; c.beginPath(); c.arc(g.X(A[0]),g.Y(A[1]),36,0,-al,true); c.stroke();
+    g.poly([A,B,C],'rgba(127,127,127,.05)',cssVar('--ink'),2.4);
+    g.seg(A[0],A[1],B[0],B[1],cssVar('--plot-line'),5); g.seg(B[0],B[1],C[0],C[1],cssVar('--plot-line2'),5); g.seg(A[0],A[1],C[0],C[1],cssVar('--cF'),4);
+    g.label((A[0]+B[0])/2,A[1],'прилежащ катет b = '+fmt(adj,2),cssVar('--plot-line'),-70,24,'12px system-ui');
+    g.label(B[0],(B[1]+C[1])/2,'срещулежащ катет a = '+fmt(opp,2),cssVar('--plot-line2'),10,4,'12px system-ui');
+    g.label((A[0]+C[0])/2,(A[1]+C[1])/2,'хипотенуза c = '+fmt(hyp,2),cssVar('--cF'),-40,-14,'12px system-ui');
+    g.label(A[0],A[1],'α',cssVar('--cW'),44,-6,'bold 15px Georgia');
     g.label(B[0],B[1],'∟',cssVar('--ink'),-16,-6,'14px system-ui');
-    g.handle(Hang[0],Hang[1],cssVar('--accent'));
-    g.handle(C[0],C[1],cssVar('--plot-line')); g.label(C[0],C[1],'C',cssVar('--ink'),10,-8,'bold 14px Georgia');
-    out.innerHTML='sin α = '+frac('срещулежащ','хипотенуза')+' = '+frac(fmt(opp,2),fmt(hyp,2))+' = <b>'+fmt(Math.sin(al),3)+'</b> · '+
-      'cos α = '+frac('прилежащ','хипотенуза')+' = '+frac(fmt(adj,2),fmt(hyp,2))+' = <b>'+fmt(Math.cos(al),3)+'</b> · tg α = '+frac('sin α','cos α')+' = <b>'+fmt(Math.tan(al),3)+'</b>'+
-      '<br><span class="mnote">Провери: докато влачиш C (само дължините), тези три числа не се променят — зависят единствено от ъгъла α.</span>';
-    renderMath(out);
+    g.label(A[0],A[1],'A',cssVar('--ink'),-18,6,'bold 13px Georgia'); g.label(B[0],B[1],'B',cssVar('--ink'),8,22,'bold 13px Georgia'); g.label(C[0],C[1],'C',cssVar('--ink'),10,-6,'bold 13px Georgia');
+    out.innerHTML='sin α = '+tfrac('срещулежащ катет a','хипотенуза c')+' = '+tfrac(fmt(opp,2),fmt(hyp,2))+' = <b>'+fmt(Math.sin(al),3)+'</b><br>'+
+      'cos α = '+tfrac('прилежащ катет b','хипотенуза c')+' = '+tfrac(fmt(adj,2),fmt(hyp,2))+' = <b>'+fmt(Math.cos(al),3)+'</b><br>'+
+      'tg α = '+tfrac('срещулежащ катет a','прилежащ катет b')+' = <b>'+fmt(Math.tan(al),3)+'</b>'+
+      '<br><span class="mnote">Смени дължината — трите отношения не се променят: зависят само от ъгъла α (подобни триъгълници).</span>';
   }
   draw(); liveRedraws.push(draw);
-  draggable(cv,g,()=>{ const u=[Math.cos(al),Math.sin(al)]; const C=[A[0]+L*u[0],A[1]+L*u[1]]; const Hang=[A[0]+rA*u[0],A[1]+rA*u[1]];
-    return [
-      {x:Hang[0],y:Hang[1],set:(x,y)=>{ al=clamp(Math.atan2(y-A[1],x-A[0]),5*Math.PI/180,85*Math.PI/180); }},
-      {x:C[0],y:C[1],set:(x,y)=>{ L=(x-A[0])*Math.cos(al)+(y-A[1])*Math.sin(al); }},
-    ]; },draw);
+  animateSlider(anim, AL, draw, 1);
 }},
 
 /* ---------- Единична окръжност: подвижна точка + анимация ---------- */
@@ -889,12 +893,14 @@ vectors:{ build(root){
   let Pa=[3,1.5], Pb=[-2,2.5];
   const cA=cssVar('--plot-line'), cB=cssVar('--plot-line2'), cR=cssVar('--cW'), cK=cssVar('--cF');
   function onMode(){ draw(); }
-  function arrow(x1,y1,x2,y2,color,w,dash){ if(Math.hypot(x2-x1,y2-y1)<1e-6)return; g.seg(x1,y1,x2,y2,color,w||2.8,dash);
+  function arrow(x1,y1,x2,y2,color,w,dash){ if(Math.hypot(x2-x1,y2-y1)<1e-6)return; g.seg(x1,y1,x2,y2,color,w||3.4,dash);
     const c=g.c,X1=g.X(x1),Y1=g.Y(y1),X2=g.X(x2),Y2=g.Y(y2),an=Math.atan2(Y2-Y1,X2-X1); c.fillStyle=color; c.beginPath(); c.moveTo(X2,Y2);
-    c.lineTo(X2-13*Math.cos(an-0.38),Y2-13*Math.sin(an-0.38)); c.lineTo(X2-13*Math.cos(an+0.38),Y2-13*Math.sin(an+0.38)); c.closePath(); c.fill(); }
+    c.lineTo(X2-18*Math.cos(an-0.42),Y2-18*Math.sin(an-0.42)); c.lineTo(X2-18*Math.cos(an+0.42),Y2-18*Math.sin(an+0.42)); c.closePath(); c.fill(); }
   function vlabel(x,y,t,color){ g.label(x,y,t,color,6,-8,'bold 16px Georgia'); }
   function draw(){
-    const m=MODE(); g.clear(); g.grid(1); g.axes(2);
+    const m=MODE(); g.clear();
+    // без координатна система — само начална точка O
+    g.dot(0,0,cssVar('--muted'),4); g.label(0,0,'O',cssVar('--muted'),-14,4,'bold 13px Georgia');
     // показваме брояча за k само в режим на умножение
     kstep.box.style.display = (m==='mul')?'':'none';
     if(m==='tri'){
@@ -955,7 +961,7 @@ tribasic:{ build(root){
     g.seg(C[0],C[1],Math.min(C[0]+1.4,11.8),C[1],cssVar('--cW'),2,[5,4]);
     [['B',B,-16,18],['C',C,8,18]].forEach(([n,p,dx,dy])=>{ g.dot(p[0],p[1],cssVar('--accent'),4.5); g.label(p[0],p[1],n,cssVar('--ink'),dx,dy,'bold 14px Georgia'); });
     g.handle(A[0],A[1],cssVar('--accent')); g.label(A[0],A[1],'A',cssVar('--ink'),-4,-12,'bold 14px Georgia');
-    g.label(A[0],A[1],fmt(al,0)+'°',cssVar('--plot-line3'),-10,24); g.label(B[0],B[1],fmt(be,0)+'°',cssVar('--plot-line'),20,-8); g.label(C[0],C[1],fmt(ga,0)+'°',cssVar('--plot-line2'),-40,-8);
+    g.label(A[0],A[1],'α='+fmt(al,0)+'°',cssVar('--plot-line3'),-10,24); g.label(B[0],B[1],'β='+fmt(be,0)+'°',cssVar('--plot-line'),20,-8); g.label(C[0],C[1],'γ='+fmt(ga,0)+'°',cssVar('--plot-line2'),-46,-8);
     const a=Math.hypot(C[0]-B[0],C[1]-B[1]), b=Math.hypot(A[0]-C[0],A[1]-C[1]), cc=Math.hypot(A[0]-B[0],A[1]-B[1]);
     const mx=Math.max(al,be,ga); const big=mx===al?'BC (срещу A)':(mx===be?'AC (срещу B)':'AB (срещу C)');
     out.innerHTML='α + β + γ = '+fmt(al,0)+'° + '+fmt(be,0)+'° + '+fmt(ga,0)+'° = <b>180°</b> · външен ъгъл при C = 180° − γ = <b>'+fmt(180-ga,0)+'°</b> = α + β ✓'+
@@ -1119,24 +1125,63 @@ transforms:{ build(root){
   },draw);
 }},
 
+/* ---------- Метрични зависимости в правоъгълен триъгълник ---------- */
+rightmetric:{ build(root){
+  const hint=el('div','mnote','Влачи върха C по полуокръжността над хипотенузата — правият ъгъл при C се запазва (Талес). Виж височината h и проекциите a₁, b₁.'); root.append(hint);
+  const cv=mkCanvas(root,760,430), out=mkOut(root); const g=new Graph(cv,-0.5,11.5,-0.6,6.44);
+  const A=[1,0.7], B=[10,0.7]; const M=[(A[0]+B[0])/2,A[1]], R=(B[0]-A[0])/2;
+  let th=Math.PI*0.62;
+  function draw(){
+    const C=[M[0]+R*Math.cos(th), M[1]+R*Math.sin(th)]; const D=[C[0],A[1]];
+    const c=Math.hypot(B[0]-A[0],B[1]-A[1]);
+    const a=Math.hypot(C[0]-B[0],C[1]-B[1]), b=Math.hypot(C[0]-A[0],C[1]-A[1]);
+    const a1=Math.hypot(D[0]-B[0],D[1]-B[1]), b1=Math.hypot(D[0]-A[0],D[1]-A[1]), h=C[1]-A[1];
+    g.clear();
+    const ctx=g.c; ctx.strokeStyle=cssVar('--muted'); ctx.lineWidth=1.2; ctx.setLineDash([5,5]); ctx.beginPath();
+    ctx.arc(g.X(M[0]),g.Y(M[1]),Math.abs(g.X(M[0]+R)-g.X(M[0])),Math.PI,2*Math.PI,false); ctx.stroke(); ctx.setLineDash([]);
+    g.poly([A,B,C],'rgba(127,127,127,.06)',cssVar('--ink'),2.2);
+    g.seg(A[0],A[1],D[0],D[1],cssVar('--plot-line'),5); g.seg(D[0],D[1],B[0],B[1],cssVar('--plot-line3'),5);
+    g.seg(C[0],C[1],D[0],D[1],cssVar('--plot-line2'),2.4);
+    g.label(C[0],C[1],'∟',cssVar('--ink'),-7,18,'13px system-ui'); g.label(D[0],D[1],'∟',cssVar('--ink'),2,-2,'12px system-ui');
+    [['A',A,-16,18],['B',B,8,18],['C',C,-4,-10]].forEach(([n,P,dx,dy])=>{ g.dot(P[0],P[1],cssVar('--accent'),3.5); g.label(P[0],P[1],n,cssVar('--ink'),dx,dy,'bold 14px Georgia'); });
+    g.dot(D[0],D[1],cssVar('--ink'),3); g.label(D[0],D[1],'D',cssVar('--ink'),-4,22,'bold 12px Georgia');
+    g.handle(C[0],C[1],cssVar('--accent'));
+    g.label((A[0]+D[0])/2,A[1],'b₁='+fmt(b1,1),cssVar('--plot-line'),-16,34,'12px system-ui');
+    g.label((D[0]+B[0])/2,A[1],'a₁='+fmt(a1,1),cssVar('--plot-line3'),-16,34,'12px system-ui');
+    g.label((C[0]+D[0])/2,(C[1]+D[1])/2,'h='+fmt(h,1),cssVar('--plot-line2'),8,0,'12px system-ui');
+    g.label((A[0]+C[0])/2,(A[1]+C[1])/2,'b',cssVar('--ink'),-16,-4,'bold 14px Georgia');
+    g.label((B[0]+C[0])/2,(B[1]+C[1])/2,'a',cssVar('--ink'),8,-4,'bold 14px Georgia');
+    out.innerHTML='Прав ъгъл при C · c = a₁ + b₁ = '+fmt(a1,1)+' + '+fmt(b1,1)+' = '+fmt(c,1)+'<br>'+
+      'a² = c·a₁: <b>'+fmt(a*a,1)+' ≈ '+fmt(c*a1,1)+'</b> · b² = c·b₁: <b>'+fmt(b*b,1)+' ≈ '+fmt(c*b1,1)+'</b> · h² = a₁·b₁: <b>'+fmt(h*h,1)+' ≈ '+fmt(a1*b1,1)+'</b>';
+  }
+  draw(); liveRedraws.push(draw);
+  draggable(cv,g,()=>{ const C=[M[0]+R*Math.cos(th),M[1]+R*Math.sin(th)]; return [{x:C[0],y:C[1],set:(x,y)=>{ th=clamp(Math.atan2(Math.max(0.02,y-M[1]),x-M[0]),0.12,Math.PI-0.12); }}]; },draw);
+}},
+
 /* ---------- Полуокръжност [0°;180°]: подвижна точка ---------- */
 semicircle:{ build(root){
   const hint=el('div','mnote','Влачи точката по полуокръжността — ъгълът α върви от 0° до 180°.'); root.append(hint);
-  const cv=mkCanvas(root,760,320), out=mkOut(root); const g=new Graph(cv,-2.3,2.3,-0.35,2.0);
+  const W=760,H=340,yr0=-0.5,yr1=1.6, xr=(yr1-yr0)*W/H/2;
+  const cv=mkCanvas(root,W,H), out=mkOut(root); const g=new Graph(cv,-xr,xr,yr0,yr1);
   let al=120*Math.PI/180;
   function draw(){
     const P=[Math.cos(al),Math.sin(al)];
-    g.clear(); g.circle(0,0,1,cssVar('--muted'),1.4); // ще изчистим долната половина
-    const c=g.c; c.clearRect(0,g.Y(0)+1,g.w,g.h); // маха долната част
-    g.seg(-2.2,0,2.2,0,cssVar('--muted'),1.4); g.seg(0,0,0,1.9,cssVar('--muted'),1.4);
-    g.seg(0,0,P[0],P[1],cssVar('--accent'),2.2);
+    g.clear(); g.circle(0,0,1,cssVar('--muted'),1.6);
+    const c=g.c; c.clearRect(0,g.Y(0)+1,g.w,g.h); // маха долната половина
+    g.seg(-xr+0.1,0,xr-0.1,0,cssVar('--muted'),1.4); g.seg(0,0,0,1.5,cssVar('--muted'),1.4);
+    // дъга на ъгъла α
+    c.strokeStyle=cssVar('--cW'); c.lineWidth=1.6; c.beginPath(); c.arc(g.X(0),g.Y(0),30,0,-al,true); c.stroke();
+    g.seg(0,0,P[0],P[1],cssVar('--accent'),2.4);
     g.seg(P[0],P[1],P[0],0,cssVar('--plot-line2'),1.6,[5,4]); g.seg(P[0],P[1],0,P[1],cssVar('--plot-line3'),1.6,[5,4]);
-    g.dot(-P[0],P[1],cssVar('--muted'),4);
+    g.label((P[0])/2,P[1],'sin α',cssVar('--plot-line3'),4,-4,'12px system-ui');
+    g.label(P[0],P[1]/2,'cos α',cssVar('--plot-line2'),P[0]<0?-46:6,4,'12px system-ui');
+    g.dot(-P[0],P[1],cssVar('--muted'),4); g.label(-P[0],P[1],'180°−α',cssVar('--muted'),-14,-8,'11px system-ui');
     g.handle(P[0],P[1],cssVar('--accent'));
+    g.label(0,0,'α',cssVar('--cW'),16,-8,'bold 14px Georgia');
     g.label(-1,0,'−1',cssVar('--muted'),-4,16,'11px system-ui'); g.label(1,0,'1',cssVar('--muted'),-2,16,'11px system-ui');
     const deg=al*180/Math.PI, tg=Math.abs(Math.cos(al))<1e-3?'—':fmt(Math.tan(al),3);
     out.innerHTML='α = <b>'+fmt(deg,0)+'°</b> · sin α = <b>'+fmt(Math.sin(al),3)+'</b>, cos α = <b>'+fmt(Math.cos(al),3)+'</b>, tg α = '+frac('sin α','cos α')+' = <b>'+tg+'</b>'+
-      '<br><span class="mnote">Сивата точка е 180° − α = '+fmt(180-deg,0)+'°: sin остава същият, cos сменя знака.</span>';
+      '<br><span class="mnote">Сивата точка е при 180° − α = '+fmt(180-deg,0)+'°: sin остава същият, cos сменя знака.</span>';
     renderMath(out);
   }
   draw(); liveRedraws.push(draw);
@@ -1160,30 +1205,73 @@ soltriangle:{ build(root){
     g.handle(B[0],B[1],cssVar('--accent')); g.label(B[0],B[1],'B',cssVar('--ink'),8,20,'bold 14px Georgia');
     g.handle(C[0],C[1],cssVar('--accent')); g.label(C[0],C[1],'C',cssVar('--ink'),8,-8,'bold 14px Georgia');
     g.label((B[0]+C[0])/2,(B[1]+C[1])/2,'a = '+fmt(a,2),cssVar('--plot-line2'),8,0);
-    out.innerHTML='Косинусова: a² = b² + c² − 2bc·cos A → a = <b>'+fmt(a,2)+'</b> · ъгли A = '+fmt(angA*180/Math.PI,0)+'°, B = '+fmt(angB*180/Math.PI,0)+'°, C = '+fmt(angC*180/Math.PI,0)+'°'+
-      '<br>S = '+fmt(S,2)+' · R = '+frac('a','2 sin A')+' = <b>'+fmt(R,2)+'</b> · r = '+frac('S','p')+' = <b>'+fmt(rI,2)+'</b>';
+    out.innerHTML='Косинусова: a² = b² + c² − 2bc·cos α → a = <b>'+fmt(a,2)+'</b> · ъгли α = '+fmt(angA*180/Math.PI,0)+'°, β = '+fmt(angB*180/Math.PI,0)+'°, γ = '+fmt(angC*180/Math.PI,0)+'°'+
+      '<br>S = '+fmt(S,2)+' · R = '+frac('a','2 sin α')+' = <b>'+fmt(R,2)+'</b> · r = '+frac('S','p')+' = <b>'+fmt(rI,2)+'</b>';
     renderMath(out);
   }
   draw(); liveRedraws.push(draw);
   draggable(cv,g,()=>[{x:B[0],y:B[1],set:(x,y)=>B=[x,y]},{x:C[0],y:C[1],set:(x,y)=>C=[x,y]}],draw);
 }},
 
-/* ---------- Показателна и логаритмична функция: подвижна точка за основата ---------- */
+/* ---------- Показателна и логаритмична функция: плъзгач + анимация ---------- */
 explog:{ build(root){
-  const hint=el('div','mnote','Влачи точката вертикално (при x = 1) — тя задава основата a на y = aˣ.'); root.append(hint);
+  const ctls=el('div','ctls'); root.append(ctls);
+  const hint=el('div','mnote','Мести плъзгача за основата a или пусни анимация — виж кога функциите растат и кога намаляват.'); root.append(hint);
+  const AB=slider(ctls,'основа a = %v',0.2,4,0.05,2,draw);
+  const anim=el('button','btn','▶ Анимирай a'); ctls.append(anim);
   const cv=mkCanvas(root,720,430), out=mkOut(root); const g=new Graph(cv,-6,6,-4,4);
-  let a=2;
   function draw(){
-    let A=a; if(Math.abs(A-1)<0.06)A=1.06; if(A<0.15)A=0.15;
+    let A=AB(); if(Math.abs(A-1)<0.05)A=A<1?0.95:1.05;
     g.clear(); g.grid(1); g.axes(2); g.fn(x=>x,cssVar('--muted'),1.3);
-    g.fn(x=>Math.pow(A,x),cssVar('--plot-line'),2.6); g.fn(x=> x>1e-6?Math.log(x)/Math.log(A):NaN, cssVar('--plot-line2'),2.6);
+    g.fn(x=>Math.pow(A,x),cssVar('--plot-line'),2.8); g.fn(x=> x>1e-6?Math.log(x)/Math.log(A):NaN, cssVar('--plot-line2'),2.8);
     g.dot(0,1,cssVar('--plot-line'),4); g.dot(1,0,cssVar('--plot-line2'),4);
     g.label(4.4,3.4,'y = aˣ',cssVar('--plot-line'),0,0,'bold 13px system-ui'); g.label(4.4,2.9,'y = logₐx',cssVar('--plot-line2'),0,0,'bold 13px system-ui'); g.label(4.4,2.4,'y = x',cssVar('--muted'),0,0,'12px system-ui');
-    g.handle(1,A,cssVar('--accent'));
-    out.innerHTML='a = <b>'+fmt(A,2)+'</b> → двете функции са <b>'+(A>1?'растящи':'намаляващи')+'</b>. Графиките са симетрични спрямо y = x (логаритъмът е обратна функция на степента).';
+    out.innerHTML='a = <b>'+fmt(A,2)+'</b> → двете функции са <b>'+(A>1?'растящи':'намаляващи')+'</b>. Графиките са симетрични спрямо y = x (логаритъмът е обратна на степента); минават през (0; 1) и (1; 0).';
   }
   draw(); liveRedraws.push(draw);
-  draggable(cv,g,()=>[{x:1,y:a,axis:'y',set:(x,y)=>a=Math.max(0.15,y)}],draw);
+  animateSlider(anim, AB, draw, 0.04);
+}},
+
+/* ---------- Трапец: общ / равнобедрен / правоъгълен ---------- */
+trapezoid:{ build(root){
+  const ctls=el('div','ctls'); root.append(ctls);
+  const hint=el('div','mnote','Влачи сините точки. Средната отсечка е успоредна на основите и е равна на полусбора им.'); root.append(hint);
+  const MODE=sel(ctls,'Вид',[['iso','равнобедрен'],['right','правоъгълен'],['gen','произволен']],draw);
+  const cv=mkCanvas(root,760,430), out=mkOut(root); const g=new Graph(cv,-0.5,11.5,-0.6,6.2);
+  const D=[1.5,0.7]; let C=[9.6,0.7], A=[3.4,4.3], B=[7.0,4.3];
+  function draw(){
+    const m=MODE(); C=[clamp(C[0],D[0]+2,11),0.7];
+    A=[clamp(A[0],0.2,10.8),clamp(A[1],1.6,5.9)]; B[1]=A[1];
+    const cen=(D[0]+C[0])/2;
+    if(m==='iso'){ A[0]=clamp(A[0],D[0]+0.2,cen-0.4); B=[2*cen-A[0],A[1]]; }
+    else if(m==='right'){ A[0]=D[0]; B=[clamp(B[0],A[0]+1.2,C[0]-0.1),A[1]]; }
+    else { B[0]=clamp(B[0],A[0]+1.2,11); }
+    const a=B[0]-A[0], b=C[0]-D[0], h=A[1]-D[1];
+    const P=[(A[0]+D[0])/2,(A[1]+D[1])/2], Q=[(B[0]+C[0])/2,(B[1]+C[1])/2];
+    g.clear();
+    g.poly([A,B,C,D],'rgba(43,108,176,.10)',cssVar('--ink'),2.2);
+    g.seg(A[0],A[1],C[0],C[1],cssVar('--plot-line2'),1.4,[6,5]); g.seg(B[0],B[1],D[0],D[1],cssVar('--plot-line2'),1.4,[6,5]); // диагонали
+    g.seg(P[0],P[1],Q[0],Q[1],cssVar('--cF'),3); // средна отсечка
+    g.seg(A[0],A[1],A[0],D[1],cssVar('--plot-line3'),1.8,[4,4]); g.label(A[0],A[1],'∟',cssVar('--ink'),A[0]<=D[0]+0.05?4:-14,-16,'11px system-ui'); // височина
+    [['A',A,-6,-8],['B',B,8,-8],['C',C,8,20],['D',D,-16,20]].forEach(([n,p,dx,dy])=>{ g.dot(p[0],p[1],cssVar('--accent'),3.5); g.label(p[0],p[1],n,cssVar('--ink'),dx,dy,'bold 13px Georgia'); });
+    (m==='iso'?[A]:(m==='right'?[B]:[A,B])).forEach(p=>g.handle(p[0],p[1],cssVar('--accent'))); g.handle(C[0],C[1],cssVar('--accent'));
+    if(m!=='iso'&&m!=='right') g.handle(A[0],A[1],cssVar('--accent'));
+    g.label((A[0]+B[0])/2,A[1],'a = '+fmt(a,1),cssVar('--ink'),-16,-8,'12px system-ui');
+    g.label((D[0]+C[0])/2,D[1],'b = '+fmt(b,1),cssVar('--ink'),-16,22,'12px system-ui');
+    g.label(A[0],(A[1]+D[1])/2,'h = '+fmt(h,1),cssVar('--plot-line3'),A[0]<=D[0]+0.05?6:-42,0,'12px system-ui');
+    g.label((P[0]+Q[0])/2,(P[1]+Q[1])/2,'m = '+fmt((a+b)/2,2),cssVar('--cF'),-24,-8,'bold 12px system-ui');
+    let extra='';
+    if(m==='iso') extra=' · проекция на бедрото = '+tfrac('b − a','2')+' = '+fmt((b-a)/2,2)+' · проекция на диагонала = '+tfrac('a + b','2')+' = '+fmt((a+b)/2,2);
+    else if(m==='right') extra=' · лявото бедро е перпендикулярно на основите и е равно на h = '+fmt(h,2);
+    out.innerHTML='a = '+fmt(a,2)+', b = '+fmt(b,2)+', h = '+fmt(h,2)+' · средна отсечка m = '+tfrac('a + b','2')+' = <b>'+fmt((a+b)/2,2)+'</b>'+extra+'.';
+    renderMath(out);
+  }
+  draw(); liveRedraws.push(draw);
+  draggable(cv,g,()=>{ const m=MODE(); const hs=[{x:C[0],y:C[1],axis:'x',set:x=>C=[x,0.7]}];
+    if(m==='iso') hs.push({x:A[0],y:A[1],set:(x,y)=>A=[x,y]});
+    else if(m==='right') hs.push({x:A[0],y:A[1],axis:'y',set:(x,y)=>A=[D[0],y]}, {x:B[0],y:B[1],set:(x,y)=>B=[x,A[1]]});
+    else hs.push({x:A[0],y:A[1],set:(x,y)=>A=[x,y]}, {x:B[0],y:B[1],set:(x,y)=>B=[x,A[1]]});
+    return hs; },draw);
 }},
 
 /* ---------- Равнинни фигури ---------- */
@@ -1233,27 +1321,32 @@ planefigs:{ build(root){
   },draw);
 }},
 
-/* ---------- Графики на тригонометричните функции ---------- */
+/* ---------- Графики на тригонометричните функции: плъзгачи + анимация ---------- */
 triggraphs:{ build(root){
   const ctls=el('div','ctls'); root.append(ctls);
-  const F=sel(ctls,'Функция',[['sin','y = sin x'],['cos','y = cos x'],['tg','y = tg x'],['cotg','y = cotg x']],draw);
-  const cv=mkCanvas(root,760,360), out=mkOut(root); const g=new Graph(cv,-6.8,6.8,-3.1,3.1);
+  const F=sel(ctls,'Функция',[['sin','sin'],['cos','cos'],['tg','tg'],['cotg','cotg']],draw);
+  const AMP=slider(ctls,'амплитуда A = %v',0.5,3,0.1,1,draw);
+  const OMG=slider(ctls,'честота k = %v',0.5,3,0.1,1,draw);
+  const PHI=slider(ctls,'фаза φ = %v',-3.1,3.1,0.1,0,draw);
+  const anim=el('button','btn','▶ Анимирай φ'); ctls.append(anim);
+  const cv=mkCanvas(root,760,360), out=mkOut(root); const g=new Graph(cv,-6.8,6.8,-3.3,3.3);
   function draw(){
-    const f=F(); g.clear(); g.grid(1);
+    const f=F(),A=AMP(),k=OMG(),phi=PHI(); g.clear(); g.grid(1);
     const c=g.c; c.strokeStyle=cssVar('--muted'); c.lineWidth=1.4; c.beginPath(); c.moveTo(0,g.Y(0)); c.lineTo(g.w,g.Y(0)); c.moveTo(g.X(0),0); c.lineTo(g.X(0),g.h); c.stroke();
     c.fillStyle=cssVar('--muted'); c.font='11.5px system-ui'; c.textAlign='center';
-    [[-2*Math.PI,'−2π'],[-Math.PI,'−π'],[Math.PI,'π'],[2*Math.PI,'2π']].forEach(([v,t])=>{ c.fillText(t,g.X(v),g.Y(0)+16); });
-    c.fillText('1',g.X(0)-10,g.Y(1)+4); c.fillText('−1',g.X(0)-12,g.Y(-1)+4); c.textAlign='left';
-    let fn,zeros=[],asym=[],props='';
-    if(f==='sin'){ fn=Math.sin; for(let k=-2;k<=2;k++)zeros.push(k*Math.PI); props='D = ℝ, E = [−1; 1], период 2π · нули: x = kπ · нечетна.'; }
-    if(f==='cos'){ fn=Math.cos; for(let k=-2;k<=1;k++)zeros.push(Math.PI/2+k*Math.PI); props='D = ℝ, E = [−1; 1], период 2π · нули: x = π/2 + kπ · четна.'; }
-    if(f==='tg'){ fn=Math.tan; for(let k=-2;k<=2;k++)zeros.push(k*Math.PI); for(let k=-2;k<=1;k++)asym.push(Math.PI/2+k*Math.PI); props='период π · нули: x = kπ · асимптоти: x = π/2 + kπ · нечетна.'; }
-    if(f==='cotg'){ fn=x=>1/Math.tan(x); for(let k=-2;k<=1;k++)zeros.push(Math.PI/2+k*Math.PI); for(let k=-2;k<=2;k++)asym.push(k*Math.PI); props='период π · нули: x = π/2 + kπ · асимптоти: x = kπ · нечетна.'; }
-    asym.forEach(x=>g.seg(x,-3.1,x,3.1,cssVar('--cW'),1.4,[6,5])); g.fn(fn,cssVar('--plot-line'),2.6);
-    zeros.forEach(x=>g.dot(x,0,cssVar('--plot-line2'),4.5));
-    out.innerHTML=props+'<br><span class="mnote">Оранжевите точки са нулите; червените пунктирани прави — асимптотите.</span>';
+    [[-2*Math.PI,'−2π'],[-Math.PI,'−π'],[Math.PI,'π'],[2*Math.PI,'2π']].forEach(([v,t])=>{ c.fillText(t,g.X(v),g.Y(0)+16); }); c.textAlign='left';
+    const base={sin:Math.sin,cos:Math.cos,tg:Math.tan,cotg:x=>1/Math.tan(x)}[f];
+    g.fn(x=>base(x),cssVar('--muted'),1.4);
+    g.fn(x=>A*base(k*x+phi),cssVar('--plot-line'),2.8);
+    const phiTxt=phi>=0?'+ '+fmt(phi,1):'− '+fmt(-phi,1);
+    let props;
+    if(f==='sin'||f==='cos') props='y = '+fmt(A,1)+'·'+f+'('+fmt(k,1)+'x '+phiTxt+') · амплитуда |A| = '+fmt(Math.abs(A),1)+' → E = [−'+fmt(Math.abs(A),1)+'; '+fmt(Math.abs(A),1)+'] · период T = '+frac('2π','k')+' = '+fmt(2*Math.PI/k,2);
+    else props='y = '+fmt(A,1)+'·'+f+'('+fmt(k,1)+'x '+phiTxt+') · период T = '+frac('π','k')+' = '+fmt(Math.PI/k,2)+' · с вертикални асимптоти';
+    out.innerHTML=props+'<br><span class="mnote">Сивата пунктирана крива е основната функция; плътната синя е трансформираната.</span>';
+    renderMath(out);
   }
   draw(); liveRedraws.push(draw);
+  animateSlider(anim, PHI, draw, 0.07);
 }},
 
 /* ---------- Схема на Бернули ---------- */

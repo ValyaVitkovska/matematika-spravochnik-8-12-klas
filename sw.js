@@ -1,20 +1,10 @@
-/* Service worker — кешира ресурсите за офлайн работа и прави сайта инсталируем.
-   Смени номера на версията, за да принудиш обновяване след промени. */
-const CACHE = 'spravochnik-v7';
+/* Service worker — мрежа-първо за приложните файлове (за да се виждат обновленията веднага),
+   кеш-първо за изображения и KaTeX (офлайн работа). Смени версията при промяна на CORE. */
+const CACHE = 'spravochnik-v9';
 const CORE = [
-  './',
-  './index.html',
-  './style.css',
-  './data.js',
-  './app.js',
-  './manifest.json',
-  './home-hero.jpg',
-  './logo-full.png',
-  './logo-mark.png',
-  './icon-192.png',
-  './icon-512.png',
-  './apple-touch-icon.png',
-  './favicon-64.png',
+  './', './index.html', './style.css', './data.js', './app.js', './manifest.json',
+  './home-hero.jpg', './logo-full.png', './logo-mark.png',
+  './icon-192.png', './icon-512.png', './apple-touch-icon.png', './favicon-64.png',
   'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js'
@@ -23,7 +13,6 @@ const CORE = [
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(c =>
-      // добавяме поединично, за да не пропадне цялото кеширане при един недостъпен CDN файл
       Promise.allSettled(CORE.map(u => c.add(new Request(u, { mode: 'no-cors' }))))
     ).then(() => self.skipWaiting())
   );
@@ -39,12 +28,21 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  // навигациите (HTML): мрежа с резервен кеш → работи офлайн
-  if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).catch(() => caches.match('./index.html')));
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+  // Приложни файлове (HTML/JS/CSS от нашия сайт): МРЕЖА най-напред → обновленията се виждат веднага онлайн
+  const isAppAsset = req.mode === 'navigate' || (sameOrigin && /\.(html|js|css)$/.test(url.pathname));
+  if (isAppAsset) {
+    e.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
+    );
     return;
   }
-  // останалите: кеш най-напред, после мрежа (и допълва кеша)
+  // Изображения и KaTeX CDN: кеш най-напред (пестят трафик и работят офлайн)
   e.respondWith(
     caches.match(req).then(hit => hit || fetch(req).then(res => {
       const copy = res.clone();
