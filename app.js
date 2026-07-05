@@ -1262,7 +1262,7 @@ trapezoid:{ build(root){
     if(m==='iso'){ D[0]=clamp(D[0],A[0]+0.2,cen-0.4); C=[2*cen-D[0],D[1]]; }
     else if(m==='right'){ D[0]=A[0]; C=[clamp(C[0],D[0]+1.2,B[0]-0.1),D[1]]; }
     else { C[0]=clamp(C[0],D[0]+1.2,11); }
-    const a=C[0]-D[0], b=B[0]-A[0], h=D[1]-y0;             // a — малка (DC), b — голяма (AB)
+    const a=B[0]-A[0], b=C[0]-D[0], h=D[1]-y0;             // a — голяма основа (AB), b — малка (DC)
     const FD=[D[0],y0], FC=[C[0],y0];                       // пети на височините
     const P=[(A[0]+D[0])/2,(A[1]+D[1])/2], Q=[(B[0]+C[0])/2,(B[1]+C[1])/2]; // среди на бедрата
     g.clear();
@@ -1275,8 +1275,8 @@ trapezoid:{ build(root){
     [['A',A,-16,20],['B',B,10,20],['C',C,10,-8],['D',D,-16,-8]].forEach(([n,p,dx,dy])=>{ g.dot(p[0],p[1],cssVar('--accent'),3.5); g.label(p[0],p[1],n,cssVar('--ink'),dx,dy,'bold 13px Georgia'); });
     (m==='right'?[C]:[D,C]).forEach(p=>g.handle(p[0],p[1],cssVar('--accent'))); g.handle(B[0],B[1],cssVar('--accent')); g.handle(D[0],D[1],cssVar('--accent'));
     // означения на основите, височина, средна отсечка
-    g.label((D[0]+C[0])/2,D[1],'a = '+fmt(a,1),cssVar('--ink'),-16,-8,'12px system-ui');
-    g.label((A[0]+B[0])/2,y0,'b = '+fmt(b,1)+' (AB)',cssVar('--ink'),-24,40,'12px system-ui');
+    g.label((D[0]+C[0])/2,D[1],'b = '+fmt(b,1),cssVar('--ink'),-16,-8,'12px system-ui');
+    g.label((A[0]+B[0])/2,y0,'a = '+fmt(a,1)+' (AB)',cssVar('--ink'),-24,40,'12px system-ui');
     g.label(D[0],(D[1]+y0)/2,'h = '+fmt(h,1),cssVar('--plot-line3'),m==='right'?6:-42,0,'12px system-ui');
     g.label((P[0]+Q[0])/2,(P[1]+Q[1])/2,'m = '+fmt((a+b)/2,2),cssVar('--cF'),-24,-8,'bold 12px system-ui');
     // дължини на отсечките върху голямата основа AB
@@ -1285,9 +1285,9 @@ trapezoid:{ build(root){
     if(s2>0.15) g.label((FD[0]+FC[0])/2,y0,fmt(s2,1),cssVar('--cF'),-6,20,'11px system-ui');
     if(s3>0.15) g.label((FC[0]+B[0])/2,y0,fmt(s3,1),cssVar('--plot-line'),-6,20,'11px system-ui');
     let extra='';
-    if(m==='iso') extra='<br>Върху AB: крайните отсечки са по '+tfrac('b − a','2')+' = '+fmt((b-a)/2,2)+', а средната е a = '+fmt(a,1)+'. Проекция на диагонала = '+tfrac('a + b','2')+' = '+fmt((a+b)/2,2)+'.';
+    if(m==='iso') extra='<br>Върху AB: крайните отсечки са по '+tfrac('a − b','2')+' = '+fmt((a-b)/2,2)+', а средната е b = '+fmt(b,1)+'. Проекция на диагонала = '+tfrac('a + b','2')+' = '+fmt((a+b)/2,2)+'.';
     else if(m==='right') extra='<br>Лявото бедро AD ⟂ на основите и е равно на h = '+fmt(h,2)+'.';
-    out.innerHTML='Голяма основа b = AB = '+fmt(b,2)+', малка основа a = DC = '+fmt(a,2)+', височина h = '+fmt(h,2)+'.<br>Средна отсечка m = '+tfrac('a + b','2')+' = <b>'+fmt((a+b)/2,2)+'</b>.'+extra;
+    out.innerHTML='Голяма основа a = AB = '+fmt(a,2)+', малка основа b = DC = '+fmt(b,2)+', височина h = '+fmt(h,2)+'.<br>Средна отсечка m = '+tfrac('a + b','2')+' = <b>'+fmt((a+b)/2,2)+'</b>.'+extra;
     renderMath(out);
   }
   draw(); liveRedraws.push(draw);
