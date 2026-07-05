@@ -1641,17 +1641,25 @@ else window.addEventListener('DOMContentLoaded',()=>{ let tries=0; (function wai
     else fab.classList.remove('show');
   },{passive:true});
 
+  // ---------- Сгъваеми филтри на телефон ----------
+  const filtersToggle=document.getElementById('filtersToggle');
+  const asideEl=document.querySelector('.wrap aside');
+  if(filtersToggle && asideEl){
+    filtersToggle.addEventListener('click',()=>{ const open=asideEl.classList.toggle('open'); filtersToggle.setAttribute('aria-expanded',open?'true':'false'); });
+    asideEl.addEventListener('click',e=>{ if(e.target.closest('.klist button, .chips button') && window.matchMedia('(max-width:860px)').matches){ asideEl.classList.remove('open'); filtersToggle.setAttribute('aria-expanded','false'); } });
+  }
+
   // ---------- Инсталиране като приложение (PWA) ----------
   let deferred=null;
-  const installBtn=document.getElementById('installBtn');
-  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferred=e; if(installBtn) installBtn.hidden=false; });
-  if(installBtn) installBtn.addEventListener('click',async()=>{
+  const installBtns=[document.getElementById('installBtn'),document.getElementById('installBtn2')].filter(Boolean);
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferred=e; installBtns.forEach(b=>b.hidden=false); });
+  installBtns.forEach(b=>b.addEventListener('click',async()=>{
     if(!deferred) return;
     deferred.prompt();
     try{ await deferred.userChoice; }catch(e){}
-    deferred=null; installBtn.hidden=true;
-  });
-  window.addEventListener('appinstalled',()=>{ if(installBtn) installBtn.hidden=true; });
+    deferred=null; installBtns.forEach(x=>x.hidden=true);
+  }));
+  window.addEventListener('appinstalled',()=>{ installBtns.forEach(b=>b.hidden=true); });
 
   // подсказка за iPhone/iPad (Safari не поддържа автоматичен инсталационен бутон)
   const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);

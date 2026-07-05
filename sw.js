@@ -1,6 +1,6 @@
 /* Service worker — мрежа-първо за приложните файлове (за да се виждат обновленията веднага),
    кеш-първо за изображения и KaTeX (офлайн работа). Смени версията при промяна на CORE. */
-const CACHE = 'spravochnik-v12';
+const CACHE = 'spravochnik-v13';
 const CORE = [
   './', './index.html', './style.css', './data.js', './app.js', './manifest.json',
   './home-hero.jpg', './logo-full.png', './logo-mark.png',
